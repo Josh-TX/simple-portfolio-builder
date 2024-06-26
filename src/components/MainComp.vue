@@ -3,7 +3,7 @@
 import LineChart from './LineChart.vue';
 import { Ref, ref, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { getChartData, ChartData, getLogAfrs, smoothData } from '../services/chartService';
+import { ChartData } from '../services/chartService';
 import { ChartDataBuilder } from '../services/chartDataBuilder';
 import { debounce } from '../services/debouncer';
 

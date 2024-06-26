@@ -8,7 +8,6 @@ Chart.register(zoomPlugin);
 Chart.register(...registerables);
 
 var props = defineProps<{ chartData: ChartData | null }>();
-var _mounted = false;
 var _chart: Chart<"line", number[], string> | null = null;
 
 watch(() => props.chartData, async () => {
@@ -18,7 +17,6 @@ watch(() => props.chartData, async () => {
 });
 
 onMounted(() => {
-    _mounted = true;
     _tryRenderChart();
 });
 
@@ -28,7 +26,6 @@ function _tryRenderChart() {
     }
     var labels = props.chartData.timestamps.map(z => new Date(z * 1000).toISOString().split('T')[0]);
     var datasets: ChartDataset<any, number[]>[] = [];
-    var colors = ["red", "blue"]
     for (var i = 0; i < props.chartData.seriesLabels.length; i++) {
         datasets.push({
             label: props.chartData.seriesLabels[i],

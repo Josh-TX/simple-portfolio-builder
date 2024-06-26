@@ -1,4 +1,3 @@
-import { DayPrice } from "../models/models";
 import { flattenArray, getDistinct, getSum } from "./helpers";
 import { getPriceHistory } from "./priceLoader";
 
