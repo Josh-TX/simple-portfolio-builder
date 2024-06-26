@@ -49,7 +49,7 @@ function _tryRenderChart() {
                 y: {
                     ticks: {
                         // Include a dollar sign in the ticks
-                        callback: function(value, index, ticks) {
+                        callback: function(value) {
                             var dec = Math.pow(2, value as number) - 1
                             return Math.round(dec * 1000) / 10 + "%";
                         }

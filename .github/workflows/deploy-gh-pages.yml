@@ -1,10 +1,10 @@
-name: Build and Release
+name: Deploy Github Pages
 
 on:
   workflow_dispatch:
 
 jobs:
-  validate-version:
+  deploy-gh-pages:
     runs-on: ubuntu-latest
     permissions:
       pages: write
