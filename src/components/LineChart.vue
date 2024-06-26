@@ -45,6 +45,17 @@ function _tryRenderChart() {
             datasets: datasets
         },
         options: {
+            scales: {
+                y: {
+                    ticks: {
+                        // Include a dollar sign in the ticks
+                        callback: function(value, index, ticks) {
+                            var dec = Math.pow(2, value as number) - 1
+                            return Math.round(dec * 1000) / 10 + "%";
+                        }
+                    }
+                }
+            },
             interaction: {
                 mode: 'index',
                 intersect: false,
@@ -68,6 +79,21 @@ function _tryRenderChart() {
                 filler: {
                     propagate: false
                 },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                var dec = Math.pow(2, context.parsed.y as number) - 1
+                                label += Math.round(dec * 1000) / 10 + "%";
+                            }
+                            return label;
+                        }
+                    }
+                }
             }
         }
     })

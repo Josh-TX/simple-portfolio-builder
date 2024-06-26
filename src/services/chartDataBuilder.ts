@@ -30,7 +30,7 @@ export class ChartDataBuilder{
         var promises = this._tickers.map(z => getPriceHistory(z));
         var dayPricess = await Promise.all(promises);
         var timestamps = getDistinct(flattenArray(dayPricess.map(dayPrices => dayPrices.map(z => z.timestamp))));
-        timestamps.sort();
+        timestamps.sort((z1, z2) => z1 - z2);
         if (this._filterDays){
             if (this._filterDays == "MTWTF"){
                 //do nothing
