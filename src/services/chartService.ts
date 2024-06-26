@@ -5,6 +5,7 @@ export async function getChartData(tickers: string[]): Promise<ChartData> {
     var promises = tickers.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
     var timestamps = getDistinct(flattenArray(dayPricess.map(dayPrices => dayPrices.map(z => z.timestamp))));
+    timestamps.sort();
     var dataColumns: ChartDataColumn[] = [];
     for(var timestamp of timestamps){
         var dataColumn: ChartDataColumn = [];
