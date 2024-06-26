@@ -2,10 +2,6 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-    inputs:
-      SemVer:
-        description: 'Semantic Version of the release'
-        required: true
 
 jobs:
   validate-version:
@@ -17,15 +13,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-    - name: Validate Version
-      run: |
-        VERSION=${{ github.event.inputs.SemVer }}
-        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Invalid version format: $VERSION"
-          exit 1
-        else
-          echo "Valid version format: $VERSION"
-        fi
 
     - name: Checkout
       uses: actions/checkout@v2
