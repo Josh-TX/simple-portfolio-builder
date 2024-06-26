@@ -4,40 +4,33 @@ import LineChart from './LineChart.vue';
 import { Ref, ref, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
 import { getChartData, ChartData, getLogAfrs, smoothData } from '../services/chartService';
+import { ChartDataBuilder } from '../services/chartDataBuilder';
+import { debounce } from '../services/debouncer';
 
 
 var tickers = ref(localSettingsService.getValue("tickers") || "VFIAX VGT");
 var returnDays = ref(localSettingsService.getValue("returnDays") || 50);
 var smoothDays = ref(localSettingsService.getValue("smoothDays") || 50);
 var sync = ref(!!localSettingsService.getValue("syncDays") || true);
+var filterDays = ref(localSettingsService.getValue("filterDays") || "MWF");
 var chartData: Ref<ChartData | null> = ref(null);
-var _baseChartData: ChartData | null = null
 
-function _computeBaseData(){
-    getChartData(tickers.value.split(/[^a-zA-Z]+/).filter(z => !!z)).then(z => {
-        _baseChartData = z;
-        chartData.value = smoothData(getLogAfrs(z, returnDays.value), smoothDays.value);
-    })
-}
-
-var _timeoutId: any;
-function _debounceUpdateSmoothData(){
-    clearTimeout(_timeoutId);
-    _timeoutId = setTimeout(() => {
-        if (_baseChartData){
-            chartData.value = smoothData(getLogAfrs(_baseChartData, returnDays.value), smoothDays.value);
-        }
-    }, 1000)
+async function updateData(){
+    var builder = new ChartDataBuilder(tickers.value.split(/[^a-zA-Z]+/).filter(z => !!z))
+        .setFilterDays(filterDays.value)
+        .setReturnDays(returnDays.value)
+        .setSmoothDays(smoothDays.value);
+    chartData.value = await builder.build();
 }
 watch(returnDays, () => {
-    _debounceUpdateSmoothData();
+    debounce("a", 1000, () => updateData());
     if (sync.value){
         smoothDays.value = returnDays.value;
     }
     localSettingsService.setValue("returnDays", returnDays.value);
 });
 watch(smoothDays, () => {
-    _debounceUpdateSmoothData();
+    debounce("a", 1000, () => updateData());
     if (sync.value){
         returnDays.value = smoothDays.value;
     }
@@ -49,16 +42,15 @@ watch(sync, () => {
     }
     localSettingsService.setValue("syncDays", sync.value);
 });
-
-var tickerTimeoutId: any;
+watch(filterDays, () => {
+    debounce("a", 1000, () => updateData());
+    localSettingsService.setValue("filterDays", filterDays.value);
+});
 watch(tickers, () => {
-    clearTimeout(tickerTimeoutId);
-    tickerTimeoutId = setTimeout(() => {
-        _computeBaseData();
-    }, 1000)
+    debounce("a", 1000, () => updateData());
     localSettingsService.setValue("tickers", tickers.value);
 });
-_computeBaseData();
+updateData();
 </script>
 
 <template>
@@ -81,6 +73,15 @@ _computeBaseData();
         <div style="padding-top: 24px;"> 
             <input id="sync" type="checkbox" v-model.boolean="sync">
             <label for="sync">sync</label>
+        </div>
+        <div>
+            <label>Filter Days</label>
+            <br>
+            <select v-model="filterDays">
+                <option value="MTWTF">All Weekdays</option>
+                <option value="MWF">Mon, Wed, Fri</option>
+                <option value="F">Just Friday</option>
+            </select>
         </div>
     </div>
     <LineChart :chartData="chartData"/>
