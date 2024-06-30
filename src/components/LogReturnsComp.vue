@@ -3,9 +3,12 @@
 import LineChart from './LineChart.vue';
 import { Ref, ref, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { ChartData } from '../services/chartService';
-import { ChartDataBuilder } from '../services/chartDataBuilder';
+import { ChartData } from '../services/chartDataBuilder';
+import { callWorker } from '../services/workerCaller';
 import { debounce } from '../services/debouncer';
+import { logElapsed, startTimer } from '../services/timer';
+import { GetChartDataRequest } from '../models/models';
+import { getPriceHistory } from '../services/priceLoader';
 
 
 var tickers = ref(localSettingsService.getValue("tickers") || "VFIAX VGT");
@@ -16,21 +19,29 @@ var filterDays = ref(localSettingsService.getValue("filterDays") || "MWF");
 var chartData: Ref<ChartData | null> = ref(null);
 
 async function updateData(){
-    var builder = new ChartDataBuilder(tickers.value.split(/[^a-zA-Z]+/).filter(z => !!z))
-        .setFilterDays(filterDays.value)
-        .setReturnDays(returnDays.value)
-        .setSmoothDays(smoothDays.value);
-    chartData.value = await builder.build();
+    startTimer("chartBuilder")
+    var tickerArray = tickers.value.split(/[^a-zA-Z]+/).filter(z => !!z);
+    var promises = tickerArray.map(z => getPriceHistory(z));
+    var dayPricess = await Promise.all(promises);
+    var request: GetChartDataRequest = {
+        dayPricess: dayPricess,
+        tickers: tickerArray,
+        filterDays: filterDays.value,
+        returnDays: returnDays.value,
+        smoothDays: smoothDays.value
+    };
+    chartData.value = await callWorker(request);
+    logElapsed("chartBuilder")
 }
 watch(returnDays, () => {
-    debounce("a", 1000, () => updateData());
+    debounce("a", 500, () => updateData());
     if (sync.value){
         smoothDays.value = returnDays.value;
     }
     localSettingsService.setValue("returnDays", returnDays.value);
 });
 watch(smoothDays, () => {
-    debounce("a", 1000, () => updateData());
+    debounce("a", 500, () => updateData());
     if (sync.value){
         returnDays.value = smoothDays.value;
     }
@@ -43,7 +54,7 @@ watch(sync, () => {
     localSettingsService.setValue("syncDays", sync.value);
 });
 watch(filterDays, () => {
-    debounce("a", 1000, () => updateData());
+    debounce("a", 500, () => updateData());
     localSettingsService.setValue("filterDays", filterDays.value);
 });
 watch(tickers, () => {

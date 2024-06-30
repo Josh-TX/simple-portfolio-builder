@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Chart, ChartDataset, registerables } from 'chart.js';
 import { onMounted, watch } from 'vue'
-import { ChartData } from '../services/chartService';
+import { ChartData } from '../services/chartDataBuilder';
 import zoomPlugin from 'chartjs-plugin-zoom';
 
 Chart.register(zoomPlugin);

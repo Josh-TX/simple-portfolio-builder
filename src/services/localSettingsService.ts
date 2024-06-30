@@ -4,7 +4,8 @@ export type LocalSettings = {
     smoothDays?: number | undefined,
     syncDays?: boolean | undefined,
     tickers?: string | undefined,
-    filterDays?: string | undefined
+    filterDays?: string | undefined,
+    segmentCount?: number | undefined
 }
 
 class LocalSettingsService {

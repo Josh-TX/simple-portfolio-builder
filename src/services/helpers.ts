@@ -162,3 +162,23 @@ export function sortByDesc<T>(items: T[], selectorFunc: (t:T) => number){
 export function flattenArray<T>(nestedArray: T[][]): T[] {
     return nestedArray.reduce((acc, val) => acc.concat(val), []);
 }
+
+
+function factorial(n: number) {
+    if (n === 0 || n === 1) {
+        return 1;
+    }
+    let result = 1;
+    for (let i = 2; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+}
+
+function binomialCoefficient(n: number, k: number) {
+    return factorial(n) / (factorial(k) * factorial(n - k));
+}
+
+export function combinations(N: number, M: number) {
+    return binomialCoefficient(N + M - 1, M - 1);
+}

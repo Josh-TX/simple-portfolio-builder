@@ -1,14 +1,16 @@
+import { DayPrice } from "../models/models";
 import { flattenArray, getDistinct, getSum } from "./helpers";
-import { getPriceHistory } from "./priceLoader";
 
 export class ChartDataBuilder{
     private _tickers: string[];
+    private _dayPricess: DayPrice[][];
     private _filterDays: string = "";
     private _smoothDays: number = 0;
     private _returnDays: number = 0;
 
-    constructor(tickers: string[]){
+    constructor(dayPricess: DayPrice[][], tickers: string[]){
         this._tickers = tickers;
+        this._dayPricess = dayPricess
     }
 
     setFilterDays(filterDays: string): ChartDataBuilder{
@@ -27,9 +29,7 @@ export class ChartDataBuilder{
     }
 
     async build(): Promise<ChartData>{
-        var promises = this._tickers.map(z => getPriceHistory(z));
-        var dayPricess = await Promise.all(promises);
-        var timestamps = getDistinct(flattenArray(dayPricess.map(dayPrices => dayPrices.map(z => z.timestamp))));
+        var timestamps = getDistinct(flattenArray(this._dayPricess.map(dayPrices => dayPrices.map(z => z.timestamp))));
         timestamps.sort((z1, z2) => z1 - z2);
         if (this._filterDays){
             if (this._filterDays == "MTWTF"){
@@ -47,7 +47,7 @@ export class ChartDataBuilder{
         var dataColumns: ChartDataColumn[] = [];
         for(var timestamp of timestamps){
             var dataColumn: ChartDataColumn = [];
-            for (var dayPrices of dayPricess){
+            for (var dayPrices of this._dayPricess){
                 var foundDayPrice = dayPrices.find(z => z.timestamp == timestamp);
                 dataColumn.push(foundDayPrice ? foundDayPrice.price : null);
             }
