@@ -1,9 +1,12 @@
 <script setup lang="ts">
 
-import { ref, watch } from 'vue'
+import { Ref, ref, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
 import { callWorker } from '../services/workerCaller';
-import { GetWeightsRequest } from '../models/models';
+import { GetChartDataRequest, GetWeightsRequest } from '../models/models';
+import { getPriceHistory } from '../services/priceLoader';
+import { PortfolioBuilder, PortfolioSummary } from '../services/portfolioBuilder';
+import ScatterplotChart from './ScatterplotChart.vue';
 
 
 var tickers = ref(localSettingsService.getValue("tickers") || "VFIAX VGT");
@@ -12,6 +15,7 @@ var smoothDays = ref(localSettingsService.getValue("smoothDays") || 50);
 var sync = ref(!!localSettingsService.getValue("syncDays") || true);
 var filterDays = ref(localSettingsService.getValue("filterDays") || "MWF");
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
+var portfolioSummaries: Ref<PortfolioSummary[] | null> = ref(null);
 
 watch(returnDays, () => {
     if (sync.value){
@@ -43,13 +47,24 @@ watch(segmentCount, () => {
 });
 
 async function generate(){
-    console.log(segmentCount.value)
     var request: GetWeightsRequest = {
         tickers: tickers.value.split(/[^a-zA-Z]+/).filter(z => !!z),
         segmentCount: segmentCount.value
     };
-    var weights = await callWorker(request);
-    console.log("weights", weights)
+    var weightss = await callWorker(request);
+    var tickerArray = tickers.value.split(/[^a-zA-Z]+/).filter(z => !!z);
+    var promises = tickerArray.map(z => getPriceHistory(z));
+    var dayPricess = await Promise.all(promises);
+    var getChartDataRequest: GetChartDataRequest = {
+        dayPricess: dayPricess,
+        tickers: tickerArray,
+        filterDays: filterDays.value,
+        returnDays: returnDays.value,
+        smoothDays: smoothDays.value
+    };
+    var chartData = await callWorker(getChartDataRequest);
+    var builder = new PortfolioBuilder();
+    portfolioSummaries.value = builder.applyPortfolioSummaries(chartData, weightss);
 }
 
 </script>
@@ -97,9 +112,8 @@ async function generate(){
             </select>
         </div>
         <button @click="generate">Generate</button>
-        <p>in progress - eventually I'll show a scatterplot showing each permutations's average return and standard deviation</p>
     </div>
-
+    <ScatterplotChart :portfolioSummaries="portfolioSummaries"></ScatterplotChart>
 </template>
 
 <style scoped></style>

@@ -1,5 +1,5 @@
-import { combinations } from "./helpers";
-//console.log("portfolioBuilder module")
+import { ChartData } from "./chartDataBuilder";
+import { combinations, getSD, getSum } from "./helpers";
 export class PortfolioBuilder{
 
     private _tickers: string[] = [];
@@ -32,6 +32,40 @@ export class PortfolioBuilder{
         }
         return output;
     }
+
+    applyPortfolioSummaries(chartData: ChartData, weightss: number[][]){
+        var portfolioSummaries: PortfolioSummary[] = [];
+        var segmentCount = getSum(weightss[0]);
+        var validDataColumns = chartData.dataColumns.filter(column => column.every(z => z != null));
+        for (var weights of weightss){
+            var portfolioData: number[] = [];
+            for (var dataColumn of validDataColumns){
+                var val: number = 0;
+                for (var i = 0; i < dataColumn.length; i++){
+                    val += dataColumn[i]! * weights[i] / segmentCount
+                }
+                portfolioData.push(val);
+            }
+            var sum = getSum(portfolioData)
+            var sd = getSD(portfolioData, sum);
+            if (sd == null){
+                console.warn("sd is null");
+                continue;
+            }
+            portfolioSummaries.push({
+                weights: weights,
+                avg: sum / portfolioData.length,
+                sd: sd!
+            });
+        }
+        return portfolioSummaries
+    }
+}
+
+export type PortfolioSummary = {
+    weights: number[],
+    avg: number,
+    sd: number
 }
 
 export type TickerSegmentCount = {}

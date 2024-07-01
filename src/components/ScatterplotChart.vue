@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { Chart, ChartDataset, registerables } from 'chart.js';
+import { Chart, registerables } from 'chart.js';
 import { onMounted, watch } from 'vue'
-import { ChartData } from '../services/chartDataBuilder';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { PortfolioSummary } from '../services/portfolioBuilder';
 
 Chart.register(zoomPlugin);
 Chart.register(...registerables);
 
-var props = defineProps<{ chartData: ChartData | null }>();
-var _chart: Chart<"line", number[], string> | null = null;
+var props = defineProps<{ portfolioSummaries: PortfolioSummary[] | null }>();
+var _chart: Chart<"scatter", {x: number, y: number}[], string> | null = null;
 
-watch(() => props.chartData, async () => {
-    if (props.chartData) {
+watch(() => props.portfolioSummaries, async () => {
+    if (props.portfolioSummaries) {
         _tryRenderChart();
     }
 });
@@ -21,31 +21,35 @@ onMounted(() => {
 });
 
 function _tryRenderChart() {
-    if (!props.chartData) {
+    if (!props.portfolioSummaries) {
         return;
     }
-    var labels = props.chartData.timestamps.map(z => new Date(z * 1000).toISOString().split('T')[0]);
-    var datasets: ChartDataset<any, number[]>[] = [];
-    for (var i = 0; i < props.chartData.seriesLabels.length; i++) {
-        datasets.push({
-            label: props.chartData.seriesLabels[i],
-            data: props.chartData.dataColumns.map(column => column[i]),
-            borderWidth: 1,
-            pointRadius: 0,
-        })
-
-    }
+    var pointsData = props.portfolioSummaries.map(z => ({ y: z.avg, x: z.sd }));
     if (_chart) {
         _chart.destroy();
     }
     _chart = new Chart("test-canvas", {
-        type: 'line',
+        type: 'scatter',
         data: {
-            labels: labels,
-            datasets: datasets
+            datasets: [
+                {
+                    label: "main dataset",
+                    data: pointsData,
+                    pointRadius: 5,
+                }
+            ]
         },
         options: {
             scales: {
+                x: {
+                    ticks: {
+                        // Include a dollar sign in the ticks
+                        callback: function(value) {
+                            var dec = Math.pow(2, value as number) - 1
+                            return Math.round(dec * 1000) / 10 + "%";
+                        }
+                    }
+                },
                 y: {
                     ticks: {
                         // Include a dollar sign in the ticks
@@ -55,10 +59,6 @@ function _tryRenderChart() {
                         }
                     }
                 }
-            },
-            interaction: {
-                mode: 'index',
-                intersect: false,
             },
             plugins: {
                 zoom: {
@@ -70,7 +70,8 @@ function _tryRenderChart() {
                         pinch: {
                             enabled: true
                         },
-                        mode: 'x',
+                        mode: 'xy',
+                        
                     },
                     pan: {
                         enabled: true,
@@ -82,7 +83,7 @@ function _tryRenderChart() {
                 },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             let label = context.dataset.label || '';
                             if (label) {
                                 label += ': ';
@@ -91,7 +92,8 @@ function _tryRenderChart() {
                                 var dec = Math.pow(2, context.parsed.y as number) - 1
                                 label += Math.round(dec * 1000) / 10 + "%";
                             }
-                            return label;
+                            return [label, props.portfolioSummaries![context.dataIndex].weights.toString()];
+                            return label + "<br>test";
                         }
                     }
                 }
