@@ -26,7 +26,7 @@ async function handleMessage(input: WorkerInputData): Promise<WorkerOutputData> 
     else if (TypeGuards.isGetWeightsRequest(input)){
         var request = input as GetWeightsRequest
         let builder = new PortfolioBuilder();
-        var weights = builder.getWeights(request.tickers, request.segmentCount);
+        var weights = builder.getWeights(request.tickers, request.segmentCount, request.filterExpr);
         return weights;
     }
     throw "unknown worker input";

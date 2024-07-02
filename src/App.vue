@@ -22,6 +22,7 @@ const currentView = computed(() => {
     return comp || LogReturnsComp;
 })
 
+
 </script>
 
 <template>

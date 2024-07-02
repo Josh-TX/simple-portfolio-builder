@@ -8,6 +8,7 @@ export type DayPrice = {
 export type GetWeightsRequest = {
     tickers: string[];
     segmentCount: number;
+    filterExpr: string;
 }
 
 export type GetChartDataRequest = {
@@ -30,3 +31,14 @@ export type WorkerOutputWrapper = {
 
 export type WorkerInputData = GetWeightsRequest | GetChartDataRequest;
 export type WorkerOutputData = ChartData | number[][];
+
+export type PortfolioSummary = {
+    weights: number[],
+    avg: number,
+    sd: number
+}
+
+export type ScatterplotInput = {
+    summaries: PortfolioSummary[],
+    highlightedSummaries: PortfolioSummary[]
+}

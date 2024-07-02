@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { Chart, registerables } from 'chart.js';
+import { Chart, ChartDataset, registerables } from 'chart.js';
 import { onMounted, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { PortfolioSummary } from '../services/portfolioBuilder';
+import { ScatterplotInput } from '../models/models';
 
 Chart.register(zoomPlugin);
 Chart.register(...registerables);
 
-var props = defineProps<{ portfolioSummaries: PortfolioSummary[] | null }>();
+var props = defineProps<{ scatterplotInput: ScatterplotInput | null }>();
 var _chart: Chart<"scatter", {x: number, y: number}[], string> | null = null;
 
-watch(() => props.portfolioSummaries, async () => {
-    if (props.portfolioSummaries) {
+watch(() => props.scatterplotInput, async () => {
+    if (props.scatterplotInput) {
         _tryRenderChart();
     }
 });
@@ -21,23 +21,30 @@ onMounted(() => {
 });
 
 function _tryRenderChart() {
-    if (!props.portfolioSummaries) {
+    if (!props.scatterplotInput) {
         return;
     }
-    var pointsData = props.portfolioSummaries.map(z => ({ y: z.avg, x: z.sd }));
     if (_chart) {
         _chart.destroy();
+    }
+    var datasets: ChartDataset<any, number[]>[] = [
+        {
+            label: "main",
+            data: props.scatterplotInput.summaries.map(z => ({ y: z.avg, x: z.sd })),
+            pointRadius: 4,
+        }
+    ];
+    if ( props.scatterplotInput.highlightedSummaries.length){
+        datasets.push({
+            label: "highlighted",
+            data: props.scatterplotInput.highlightedSummaries.map(z => ({ y: z.avg, x: z.sd })),
+            pointRadius: 4,
+        })
     }
     _chart = new Chart("test-canvas", {
         type: 'scatter',
         data: {
-            datasets: [
-                {
-                    label: "main dataset",
-                    data: pointsData,
-                    pointRadius: 5,
-                }
-            ]
+            datasets: datasets
         },
         options: {
             scales: {
@@ -92,7 +99,8 @@ function _tryRenderChart() {
                                 var dec = Math.pow(2, context.parsed.y as number) - 1
                                 label += Math.round(dec * 1000) / 10 + "%";
                             }
-                            return [label, props.portfolioSummaries![context.dataIndex].weights.toString()];
+                            var summaries = context.datasetIndex == 0 ? props.scatterplotInput!.summaries : props.scatterplotInput!.highlightedSummaries
+                            return [label, summaries[context.dataIndex].weights.toString()];
                             return label + "<br>test";
                         }
                     }

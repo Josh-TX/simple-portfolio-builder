@@ -1,4 +1,5 @@
 import { DayPrice } from "../models/models";
+import { localSettingsService } from "./localSettingsService";
 
 var pricesMap: {[ticker: string]: DayPrice[]} = {}
 
@@ -6,26 +7,18 @@ export async function getPriceHistory(ticker: string): Promise<DayPrice[]> {
     if (pricesMap[ticker]){
         return pricesMap[ticker];
     }
-    var cachedJson = localStorage[ticker];
-    if (cachedJson){
-        var cached: CachedDayPrices = JSON.parse(cachedJson);
-        var msDiff = (new Date().getTime() / 1000)  - cached.insertTime;
-        var cachedHours = 48;
-        if (msDiff / (1000 & 60 * 60 * cachedHours)) {
-            pricesMap[ticker] = cached.prices;
-            return cached.prices;
-        }
+    var cachedPrices =  localSettingsService.getDayPrices(ticker);
+    if (cachedPrices){
+        return cachedPrices;
     }
-    var prices = await loadPriceHistoryFromAPI(ticker);
-    if (prices.length > 0){
-        var toCache: CachedDayPrices = {
-            insertTime: new Date().getTime() / 1000,
-            prices: prices
-        };
-        localStorage[ticker] = JSON.stringify(toCache);
+    var dayPrices = await loadPriceHistoryFromAPI(ticker);
+    dayPrices = dayPrices.filter(z => z.price != null);
+    dayPrices.forEach(dayPrice => dayPrice.price = Number.parseFloat(dayPrice.price.toPrecision(9)))
+    if (dayPrices.length > 0){
+        localSettingsService.setDayPrices(ticker, dayPrices);
     }
-    pricesMap[ticker] = prices;
-    return prices;
+    pricesMap[ticker] = dayPrices;
+    return dayPrices;
 }
 
 
@@ -52,11 +45,6 @@ async function loadPriceHistoryFromAPI(ticker: string): Promise<DayPrice[]> {
 
 function getProxiedUrl(targetUrl: string){
     return 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
-}
-
-type CachedDayPrices = {
-    insertTime: number,
-    prices: DayPrice[]
 }
 
 type YahooResponse = {
