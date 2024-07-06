@@ -38,13 +38,14 @@ function _tryRenderChart() {
     if (_chart) {
         _chart.destroy();
     }
-    _chart = new Chart("test-canvas", {
+    _chart = new Chart("line-chart-canvas", {
         type: 'line',
         data: {
             labels: labels,
             datasets: datasets
         },
         options: {
+            maintainAspectRatio: false,
             scales: {
                 y: {
                     ticks: {
@@ -103,7 +104,7 @@ function _tryRenderChart() {
 </script>
 
 <template>
-    <canvas id="test-canvas" role="img" style="max-height: 90vh;"></canvas>
+    <canvas id="line-chart-canvas" role="img" style="width: 100%; height: 100%;"></canvas>
 </template>
 
 <style scoped></style>

@@ -10,7 +10,11 @@ export function removeFloatArtifact(num: number): number{
 }
 
 export function getSum(nums: number[]): number{
-    return removeFloatArtifact(nums.reduce((a, b) => a + b, 0));
+    return nums.reduce((a, b) => a + b, 0);
+}
+
+export function getProduct(nums: number[]): number{
+    return nums.reduce((a, b) => a * b, 1)
 }
 
 export function getSD(nums: number[], sum?: number | undefined): number | undefined {

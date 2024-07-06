@@ -1,4 +1,4 @@
-import { WorkerInputWrapper, WorkerInputData, WorkerOutputWrapper, WorkerOutputData, GetWeightsRequest, GetChartDataRequest } from "../models/models";
+import { WorkerInputWrapper, WorkerInputData, WorkerOutputWrapper, WorkerOutputData, GetWeightsRequest, GetChartDataRequest, GetPortfolioSimulationsRequest } from "../models/models";
 import { ChartData } from "./chartDataBuilder";
 
 //there's about 15ms of overhead to spin up a new worker, so keeping one active is slightly more performant
@@ -20,6 +20,7 @@ worker.addEventListener('message', (event: MessageEvent<WorkerOutputWrapper>) =>
 
 export function callWorker(input: GetWeightsRequest): Promise<number[][]>;
 export function callWorker(input: GetChartDataRequest): Promise<ChartData>;
+export function callWorker(input: GetPortfolioSimulationsRequest): Promise<number[]>;
 export function callWorker(requestData: WorkerInputData): Promise<WorkerOutputData>{
     var workerMsg: WorkerInputWrapper = { 
         id: getRandomString(),

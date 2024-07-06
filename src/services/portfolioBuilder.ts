@@ -13,10 +13,10 @@ export class PortfolioBuilder{
     }
 
     getWeights(tickers: string[], segmentCount: number, filterExpr: string): number[][]{
-        this._tickers = tickers.map(z => z.toLowerCase());
+        this._tickers = tickers.map(z => z.toLowerCase()).map(z => z == "$" ? "moneymarket" : z);
         this._filterExpr = null;
         if (filterExpr){
-            filterExpr = filterExpr.toLowerCase().replace(/(?<![<>!=])=(?![=])/g, '==').replace(/&&?/g, ' and ').replace(/\|\|?/g, ' or ');
+            filterExpr = filterExpr.toLowerCase().replace(/(?<![<>!=])=(?![=])/g, '==').replace(/&&?/g, ' and ').replace(/\|\|?/g, ' or ').replace("$", ' moneymarket ');;
             var parser =  new Parser();
             this._filterExpr = parser.parse(filterExpr);
         }
@@ -64,14 +64,18 @@ export class PortfolioBuilder{
         var portfolioSummaries: PortfolioSummary[] = [];
         var segmentCount = getSum(weightss[0]);
         var validDataColumns = chartData.dataColumns.filter(column => column.every(z => z != null));
+        var log2 = Math.log(2);
         for (var weights of weightss){
             var portfolioData: number[] = [];
             for (var dataColumn of validDataColumns){
+                //when getting the weighted average of several funds, it can be tempting to just average the log-scaled returns
+                //but doing so is incorrect. That would result in the geometric mean of the different funds, which isn't what we want
+                //we need to exponent the log returns so that their just normal factor returns, get the arithmetic mean, and then log scale that result. 
                 var val: number = 0;
                 for (var i = 0; i < dataColumn.length; i++){
-                    val += dataColumn[i]! * weights[i] / segmentCount
+                    val += Math.pow(2, dataColumn[i]!) * weights[i] / segmentCount
                 }
-                portfolioData.push(val);
+                portfolioData.push(Math.log(val) / log2);
             }
             var sum = getSum(portfolioData)
             var sd = getSD(portfolioData, sum);

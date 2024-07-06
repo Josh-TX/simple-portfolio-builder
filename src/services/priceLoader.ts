@@ -1,11 +1,15 @@
 import { DayPrice } from "../models/models";
 import { localSettingsService } from "./localSettingsService";
+import { moneyMarketPrices } from "./moneyMarketPrices";
 
 var pricesMap: {[ticker: string]: DayPrice[]} = {}
 
 export async function getPriceHistory(ticker: string): Promise<DayPrice[]> {
     if (pricesMap[ticker]){
         return pricesMap[ticker];
+    }
+    if (ticker == "$"){
+        return getMoneyMarket();
     }
     var cachedPrices =  localSettingsService.getDayPrices(ticker);
     if (cachedPrices){
@@ -41,6 +45,13 @@ async function loadPriceHistoryFromAPI(ticker: string): Promise<DayPrice[]> {
         });
     }
     return output;
+}
+
+function getMoneyMarket(): DayPrice[]{
+    return moneyMarketPrices.map(z => ({
+        timestamp: z[0],
+        price: z[1]
+    }));
 }
 
 function getProxiedUrl(targetUrl: string){

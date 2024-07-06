@@ -1,0 +1,3 @@
+# morningstar-converter
+
+This used to display money-market price history. Most money-markets are fixed-price, so the yahoo-finance API can't pull anything meaningful from it. morningstar.com can view a money market like VMFXX, and in the "chart" tab it can show what the growth of the stock has been since 1981. I can copy the JSON from that API call, and paste it into input.json. I then run `node main`, which will map the data into a [price, timestamp] array and write to output.json. I then copy that into moneyMarketPrices.ts. 

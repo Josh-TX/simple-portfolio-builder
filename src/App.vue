@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import LogReturnsComp from './components/LogReturnsComp.vue';
 import PortfolioBuilderComp from './components/PortfolioBuilderComp.vue';
+import SimulatePortfolioComp from './components/SimulatePortfolioComp.vue';
 import { ref, computed } from 'vue';  
 
 const routes: { [key: string]: any } = {
     '/log-returns': LogReturnsComp,
-    '/portfolio-builder': PortfolioBuilderComp
+    '/portfolio-builder': PortfolioBuilderComp,
+    '/simulate-portfolio': SimulatePortfolioComp
 }
 
 const currentPath = ref(window.location.hash)
@@ -29,7 +31,7 @@ const currentView = computed(() => {
     <div style="display: flex;">
         <a href="#/log-returns">Log Returns</a> |
         <a href="#/portfolio-builder">Portfolio Builder</a> |
-        <a href="#/non-existent-path">Simulate Portfolio</a>
+        <a href="#/simulate-portfolio">Simulate Portfolio</a>
     </div>
     <component :is="currentView" />
 </template>
