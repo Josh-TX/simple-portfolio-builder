@@ -2,8 +2,9 @@ import { DayPrice } from "../models/models";
 import { ChartDataColumn } from "./chartDataBuilder";
 import { getSum } from "./helpers";
 
-function transpose(matrix: number[][]): number[][] {
-    const transposed: number[][] = [];
+
+export function transpose<T>(matrix: T[][]): T[][] {
+    const transposed: T[][] = [];
     for (let i = 0; i < matrix[0].length; i++) {
         transposed[i] = [];
         for (let j = 0; j < matrix.length; j++) {

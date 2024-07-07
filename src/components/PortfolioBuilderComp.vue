@@ -16,6 +16,8 @@ import { ChartData } from '../services/chartDataBuilder';
 import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { getSD, getSum } from '../services/helpers';
 import { getCorrelationMatrix } from '../services/matrix-helper';
+import { logElapsed, startTimer } from '../services/timer';
+import * as helpers from "../services/misc-helpers";
 
 
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
@@ -48,16 +50,27 @@ async function generate() {
     var weightss = await callWorker(request);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
-    var getChartDataRequest: GetChartDataRequest = {
-        dayPricess: dayPricess,
-        tickers: tickerArray,
-        filterDays: tickerInputs.filterDays,
-        returnDays: tickerInputs.returnDays,
-        smoothDays: tickerInputs.smoothDays
-    };
-    var chartData = await callWorker(getChartDataRequest);
+    startTimer("getTimestamps")
+    var timestamps = helpers.getTimestamps(dayPricess, tickerInputs.filterDays);
+    logElapsed("getTimestamps")
+    startTimer("getPriceColumns")
+    var priceColumns = helpers.getPriceColumns(timestamps, dayPricess)
+    logElapsed("getPriceColumns")
+    startTimer("applyPortfolioSummaries2")
     var builder = new PortfolioBuilder();
-    allSummaries = builder.applyPortfolioSummaries(chartData, weightss);
+    allSummaries = builder.applyPortfolioSummaries2(timestamps, priceColumns, weightss, tickerInputs.returnDays, tickerInputs.smoothDays);
+    logElapsed("applyPortfolioSummaries2")
+    
+    // var getChartDataRequest: GetChartDataRequest = {
+    //     dayPricess: dayPricess,
+    //     tickers: tickerArray,
+    //     filterDays: tickerInputs.filterDays,
+    //     returnDays: tickerInputs.returnDays,
+    //     smoothDays: tickerInputs.smoothDays
+    // };
+    // var chartData = await callWorker(getChartDataRequest);
+    // var builder = new PortfolioBuilder();
+    // allSummaries = builder.applyPortfolioSummaries(chartData, weightss);
     updateHighlightedIndexes();
 }
 

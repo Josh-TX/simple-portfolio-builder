@@ -13,6 +13,9 @@ export type DayPrice = {
     price: number
 }
 
+export type NullableColumn = (number | null)[];
+export type Column = number[];
+
 export type GetWeightsRequest = {
     tickers: string[];
     segmentCount: number;
