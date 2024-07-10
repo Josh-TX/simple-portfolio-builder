@@ -14,7 +14,7 @@ class PortfolioSimulator{
         var output: number[] = [];
         startTimer("getSimulationsTime");
         for (var simNum = 0; simNum < simulationCount; simNum++){
-            var columns = generateData(portfolio.averages, portfolio.stddevs, portfolio.correlationMatrix, years);
+            var columns = generateData(portfolio.avgLogAfrs, portfolio.stdDevLogAfrs, portfolio.correlationMatrix, years);
             var sectionLogReturns: number[] = [];
             for (var i = 0; i < columns.length; i++){
                 var weightedSum = 0;

@@ -13,6 +13,18 @@ export type DayPrice = {
     price: number
 }
 
+export type DayAFR = {
+    timestamp: number,
+    price: number,
+    afr: number
+}
+export type DayLogAFR = {
+    timestamp: number,
+    price: number,
+    afr: number,
+    logAfr: number,
+}
+
 export type NullableColumn = (number | null)[];
 export type Column = number[];
 
@@ -51,8 +63,8 @@ export type WorkerOutputData = ChartData | number[][] | number[];
 
 export type PortfolioSummary = {
     weights: number[],
-    avg: number,
-    sd: number
+    avgLogAfr: number,
+    stdDevLogAfr: number
 }
 
 export type Portfolio = {
@@ -62,8 +74,9 @@ export type Portfolio = {
     smoothDays: number,
     tickers: string[],
     weights: number[],
-    averages: number[],
-    stddevs: number[],
+
+    avgLogAfrs: number[],
+    stdDevLogAfrs: number[],
     correlationMatrix: number[][]
 }
 

@@ -64,6 +64,7 @@ function _tryRenderChart() {
                     label: "main",
                     data: props.summaries.map(z => ({ y: z.avg, x: z.sd })),
                     pointRadius: 5,
+                    pointHoverRadius: 8,
                     backgroundColor: function (context: ScriptableContext<'line'>) {
                         if (selectedIndex == context.dataIndex) {
                             return "#00bb4f";

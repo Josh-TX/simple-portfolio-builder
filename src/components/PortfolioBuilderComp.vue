@@ -18,6 +18,7 @@ import { getSD, getSum } from '../services/helpers';
 import { getCorrelationMatrix } from '../services/matrix-helper';
 import { logElapsed, startTimer } from '../services/timer';
 import * as helpers from "../services/misc-helpers";
+import * as miscHelpers from "../services/misc-helpers2";
 
 
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
@@ -50,27 +51,28 @@ async function generate() {
     var weightss = await callWorker(request);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
-    startTimer("getTimestamps")
-    var timestamps = helpers.getTimestamps(dayPricess, tickerInputs.filterDays);
-    logElapsed("getTimestamps")
-    startTimer("getPriceColumns")
-    var priceColumns = helpers.getPriceColumns(timestamps, dayPricess)
-    logElapsed("getPriceColumns")
-    startTimer("applyPortfolioSummaries2")
-    var builder = new PortfolioBuilder();
-    allSummaries = builder.applyPortfolioSummaries2(timestamps, priceColumns, weightss, tickerInputs.returnDays, tickerInputs.smoothDays);
-    logElapsed("applyPortfolioSummaries2")
-    
-    // var getChartDataRequest: GetChartDataRequest = {
-    //     dayPricess: dayPricess,
-    //     tickers: tickerArray,
-    //     filterDays: tickerInputs.filterDays,
-    //     returnDays: tickerInputs.returnDays,
-    //     smoothDays: tickerInputs.smoothDays
-    // };
-    // var chartData = await callWorker(getChartDataRequest);
-    // var builder = new PortfolioBuilder();
-    // allSummaries = builder.applyPortfolioSummaries(chartData, weightss);
+    var intersectionDayPricess = miscHelpers.getIntersectionDayPrices(dayPricess);
+    var portfolioSummaries: PortfolioSummary[] = [];
+
+    for (var weights of weightss) {
+        var portfolioPrices = miscHelpers.getPortfolioDayPrices(intersectionDayPricess, weights);
+        var interpolatedPortfolioPrices = miscHelpers.interpolateDayPrices(portfolioPrices);
+        var dayAfrs = miscHelpers.getAFRs(interpolatedPortfolioPrices, tickerInputs.returnDays);
+        var dayLogAfrs = miscHelpers.getLogAFRs(dayAfrs, tickerInputs.smoothDays);
+        var logAfrs = dayLogAfrs.map(z => z.logAfr)
+        var sum = getSum(logAfrs)
+        var sd = getSD(logAfrs, sum);
+        if (sd == null){
+            console.warn("sd is null");
+            continue;
+        }
+        portfolioSummaries.push({
+            weights: weights,
+            avgLogAfr: sum / logAfrs.length,
+            stdDevLogAfr: sd!
+        });
+    }
+    allSummaries = portfolioSummaries;
     updateHighlightedIndexes();
 }
 
@@ -150,8 +152,8 @@ async function pointClicked(summary: PortfolioSummary | null) {
         returnDays: tickerInputs.returnDays,
         tickers: tickerArray,
         weights: summary.weights,
-        averages: averages,
-        stddevs: sds,
+        avgLogAfrs: averages,
+        stdDevLogAfrs: sds,
         correlationMatrix: getCorrelationMatrix(chartData.dataColumns)
     };
     selectedPortfolio.value = portfolio;
