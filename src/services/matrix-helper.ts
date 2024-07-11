@@ -20,6 +20,7 @@ function multiply(matrixA: number[][], matrixB: number[][]): number[][] {
     const rowsB = matrixB.length;
     const colsB = matrixB[0].length;
     if (colsA !== rowsB) {
+        console.log("provided matrices: ", matrixA, matrixB);
         throw "The 2 provided matrices can't be multiplied"
     }
     const result: number[][] = Array.from({ length: rowsA }, () => Array(colsB).fill(0));
@@ -34,11 +35,11 @@ function multiply(matrixA: number[][], matrixB: number[][]): number[][] {
     return result;
 }
 
-function generateStandardNormalSamples(size: number): number[][] {
+function generateStandardNormalSamples(columnCount: number, columnSize: number): number[][] {
     const samples: number[][] = [];
-    for (let i = 0; i < size; i++) {
+    for (let i = 0; i < columnCount; i++) {
         const sample: number[] = [];
-        for (let j = 0; j < 3; j++) {
+        for (let j = 0; j < columnSize; j++) {
             sample.push(Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random()));
         }
         samples.push(sample);
@@ -46,7 +47,7 @@ function generateStandardNormalSamples(size: number): number[][] {
     return samples;
 }
 
-function choleskyDecomposition(matrix: number[][]): number[][] {
+function choleskyDecomposition(matrix: number[][]): number[][] | null {
     const n = matrix.length;
     const L: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
 
@@ -57,6 +58,9 @@ function choleskyDecomposition(matrix: number[][]): number[][] {
                 sum += L[i][k] * L[j][k];
             }
             if (i === j) {
+                if (matrix[i][i] - sum < 0){
+                    return null;
+                }
                 L[i][j] = Math.sqrt(matrix[i][i] - sum);
             } else {
                 L[i][j] = (matrix[i][j] - sum) / L[j][j];
@@ -70,11 +74,14 @@ export function generateData(
     means: number[], 
     stdDevs: number[], 
     correlationMatrix: number[][], 
-    size: number
+    columnCount: number
 ): number[][] {
-    const standardNormalSamples = generateStandardNormalSamples(size);
+    const standardNormalSamples = generateStandardNormalSamples(columnCount, means.length);
     const choleskyDecomp = choleskyDecomposition(correlationMatrix);
-    const transformedSamples = multiply(standardNormalSamples, transpose(choleskyDecomp));
+    if (choleskyDecomp == null){
+        throw "correlation matrix is not positive semi-definite";
+    }
+    const transformedSamples = multiply(standardNormalSamples, transpose(choleskyDecomp!));
     for (const sample of transformedSamples as number[][]) {
         for (let i = 0; i < sample.length; i++) {
             sample[i] = means[i] + stdDevs[i] * sample[i];
@@ -94,7 +101,7 @@ function getCorrelation(x: number[], y: number[]): number {
     return denominator === 0 ? 0 : covariance / denominator;
 }
 
-export function getCorrelationMatrix(dataColumns: ChartDataColumn[]): number[][]{
+export function getCorrelationMatrix(dataColumns: ChartDataColumn[], mustBePositiveSemiDefinite = false): number[][]{
     if (!dataColumns.length || !dataColumns[0].length){
         return []
     }
@@ -119,5 +126,19 @@ export function getCorrelationMatrix(dataColumns: ChartDataColumn[]): number[][]
             }
         }
     }
-    return correlationMatrix;
+    if (!mustBePositiveSemiDefinite){
+        return correlationMatrix;
+    }
+    //the choleskyDecomposition() function will return null if it's not positive semi-definite
+    var choleskyDecomp = choleskyDecomposition(correlationMatrix);
+    if (choleskyDecomp != null){
+        return correlationMatrix;
+    }
+    //at this point, the matrix we just calculated is not positive semi-definite. This means that it's technically an impossible correlation matrix.
+    //the reason this can happen is that each correlation is calculated with as much data as the 2 funds have in common.
+    //this should make each individual correlation more accurate, but it can occaisionally make impossible correlation matrices. This is more likely for large matrices
+    //So, to fix this, we'll just calculate a correlation matrix using just data that ALL the funds have in common. 
+
+    //I'll do this late
+    throw "todo: re-calculate correlation Matrix"
 }

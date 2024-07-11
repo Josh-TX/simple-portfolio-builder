@@ -62,7 +62,7 @@ function _tryRenderChart() {
             datasets: [
                 {
                     label: "main",
-                    data: props.summaries.map(z => ({ y: z.avg, x: z.sd })),
+                    data: props.summaries.map(z => ({ y: z.avgLogAfr, x: z.stdDevLogAfr })),
                     pointRadius: 5,
                     pointHoverRadius: 8,
                     backgroundColor: function (context: ScriptableContext<'line'>) {

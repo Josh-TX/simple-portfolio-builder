@@ -98,7 +98,6 @@ export function getSmoothedLogAFRs<T extends number[] | (number | null)[]>(times
     var totalDays = Math.round((timestamps[timestamps.length - 1] - timestamps[0]) / 86400);
     var daysPerItem = totalDays / timestamps.length;
     var itemsToAverage = smoothDays / daysPerItem;
-    console.log(totalDays, daysPerItem, itemsToAverage);
     var firstIndex = 0;
     for (var i = 0; i < logAFRs.length; i++){
         if (logAFRs[i] == null){

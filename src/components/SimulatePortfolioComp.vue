@@ -47,8 +47,8 @@ async function updateData() {
     for (var selectedPortfolio of selectedPortfolios){
         var request: GetPortfolioSimulationsRequest = {
             portfolio: selectedPortfolio,
-            simulationCount: 20000,
-            years: 30
+            simulationCount: 100,
+            years: 20
         };
         var results = await callWorker(request);
         simulatedPortfolios.push({ ...selectedPortfolio, results: results });
