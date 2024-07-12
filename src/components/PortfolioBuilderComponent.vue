@@ -8,7 +8,6 @@ import { localSettingsService } from '../services/localSettingsService';
 import { callWorker } from '../services/workerCaller';
 import { GetChartDataRequest, GetWeightsRequest, Portfolio, PortfolioSummary } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
-import { PortfolioBuilder } from '../services/portfolioBuilder';
 import ScatterplotChart from './ScatterplotChart.vue';
 import { Parser } from 'expr-eval';
 import { debounce } from '../services/debouncer';
@@ -16,8 +15,6 @@ import { ChartData } from '../services/chartDataBuilder';
 import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { getSD, getSum } from '../services/helpers';
 import { getCorrelationMatrix } from '../services/matrix-helper';
-import { logElapsed, startTimer } from '../services/timer';
-import * as helpers from "../services/misc-helpers";
 import * as miscHelpers from "../services/misc-helpers2";
 
 
@@ -48,7 +45,7 @@ async function generate() {
         segmentCount: segmentCount.value,
         filterExpr: filterExpr.value
     };
-    var weightss = await callWorker(request);
+    var weightss = await callWorker("getWeights", request);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
     var intersectionDayPricess = miscHelpers.getIntersectionDayPrices(dayPricess);
@@ -135,12 +132,12 @@ async function pointClicked(summary: PortfolioSummary | null) {
         returnDays: tickerInputs.returnDays,
         smoothDays: tickerInputs.smoothDays
     };
-    var chartData = await callWorker(request);
+    var chartData = await callWorker("getChartData", request);
     selectedChartData.value = chartData;
     var averages: number[] = [];
     var sds: number[] = [];
     for (var i = 0; i < chartData.dataColumns[0].length; i++){
-        var nums = chartData.dataColumns.map(z => z[i]).filter(z => z != null);
+        var nums = chartData.dataColumns.map(z => z[i]).filter(z => z != null).map(z => z!); //typescript being dumb
         var avg = getSum(nums) / nums.length;
         var sd = getSD(nums)!;
         averages.push(avg);

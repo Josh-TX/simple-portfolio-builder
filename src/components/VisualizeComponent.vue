@@ -32,12 +32,12 @@ async function updateData(){
         returnDays: tickerInputs.returnDays,
         smoothDays: tickerInputs.smoothDays
     };
-    chartData.value = await callWorker(request);
+    chartData.value = await callWorker("getChartData", request);
     correlationMatrix.value = getCorrelationMatrix(chartData.value.dataColumns);
     averages.value = [];
     sds.value = [];
     for (var i = 0; i < tempTickerArray.length; i++){
-        var nums = chartData.value.dataColumns.map(z => z[i]).filter(z => z != null);
+        var nums = chartData.value.dataColumns.map(z => z[i]).filter(z => z != null).map(z => z!); //typescript being dumb
         var avg = getSum(nums) / nums.length;
         var sd = getSD(nums)!;
         averages.value.push((Math.round((Math.pow(2, avg)-1) * 1000) / 10) + "%");

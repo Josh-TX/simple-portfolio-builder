@@ -50,7 +50,7 @@ async function updateData() {
             simulationCount: 100,
             years: 20
         };
-        var results = await callWorker(request);
+        var results = await callWorker("getPortfolioSimulations", request);
         simulatedPortfolios.push({ ...selectedPortfolio, results: results });
     }
     histogram.value = getHistogram(simulatedPortfolios);

@@ -1,4 +1,3 @@
-import { DayPrice } from "../models/models";
 import { ChartDataColumn } from "./chartDataBuilder";
 import { getSum } from "./helpers";
 

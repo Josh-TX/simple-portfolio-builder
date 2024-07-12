@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import LogReturnsComp from './components/LogReturnsComp.vue';
-import PortfolioBuilderComp from './components/PortfolioBuilderComp.vue';
-import SimulatePortfolioComp from './components/SimulatePortfolioComp.vue';
+import LogReturnsComp from './components/VisualizeComponent.vue';
+import PortfolioBuilderComp from './components/PortfolioBuilderComponent.vue';
+import SimulatePortfolioComp from './components/SimulatePortfolioComponent.vue';
 import { ref, computed } from 'vue';  
 
 const routes: { [key: string]: any } = {
