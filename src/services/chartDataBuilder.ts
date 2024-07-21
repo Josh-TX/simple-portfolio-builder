@@ -1,4 +1,4 @@
-import { DayPrice } from "../models/models";
+import { ChartData, ChartDataColumn, DayPrice } from "../models/models";
 import { flattenArray, getDistinct, getSum } from "./helpers";
 
 export class ChartDataBuilder{
@@ -150,11 +150,3 @@ export class ChartDataBuilder{
         return weights
     }
 }
-
-export type ChartData = {
-    timestamps: number[],
-    seriesLabels: string[],
-    dataColumns: ChartDataColumn[]
-}
-
-export type ChartDataColumn = Array<number | null>;

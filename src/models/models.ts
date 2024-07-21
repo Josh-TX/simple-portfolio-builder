@@ -1,5 +1,3 @@
-import { ChartData } from "../services/chartDataBuilder";
-
 export type TickerInputs = {
     returnDays: number,
     smoothDays: number,
@@ -42,30 +40,19 @@ export type GetChartDataRequest = {
     smoothDays: number;
 }
 
+export type GetLogAfrsRequest = {
+    tickers: string[];
+    dayPricess: DayPrice[][];
+    filterDays: string;
+    returnDays: number;
+    smoothDays: number;
+}
+
 export type GetPortfolioSimulationsRequest = {
     portfolio: Portfolio, 
     simulationCount: number, 
     years: number
 }
-
-export type WorkerInputWrapper = {
-    id: string,
-    name: string,
-    data: WorkerInputData
-}
-
-export type WorkerProgress = {
-    id: string,
-    progress: number
-}
-
-export type WorkerOutputWrapper = {
-    id: string,
-    data: WorkerOutputData
-}
-
-export type WorkerInputData = GetWeightsRequest | GetChartDataRequest | GetPortfolioSimulationsRequest;
-export type WorkerOutputData = ChartData | number[][] | number[];
 
 export type PortfolioSummary = {
     weights: number[],
@@ -98,3 +85,48 @@ export type HistogramDataset = {
     name: string,
     bins: number[]
 }
+
+
+export type LineChartType = "prices" | "returns" | "logreturns"
+export type LineChartLabels = "percent" | "afr" | "log2afr"
+export type LineChartSecondLabel = ""
+
+export type ChartData = {
+    timestamps: number[],
+    seriesLabels: string[],
+    dataColumns: ChartDataColumn[]
+}
+
+export type LineChartData = {
+    timestamps: number[], 
+    seriesLabels: string[],
+    data: (number | null)[][],//outer array's length should match seriesLabels.length, innerArray should match timestamps.length
+    labelCallback: (val: number | null) => string,
+    data2: (number | null)[][] | null,
+    labelCallback2: (val: number | null) => string | null
+}
+
+export type LineDataContainer = {
+    timestamps: number[], 
+    seriesLabels: string[],
+    LineDatas: LineData[],
+}
+export type LineData = {
+    type: LineDataType,
+    data: Row<number | null>[], //outer array's length should match seriesLabels.length, innerArray should match timestamps.length
+    labelCallback: (val: number | null) => string,
+    yAxisTitle: string
+}
+
+export type LineDataType = "price" | "return" | "log"
+
+export type GetUnionDaysResult<T> = {
+    timestamps: number[]
+    days: Row<(T | null)>[]
+}
+
+
+export type ChartDataColumn = Array<number | null>;
+
+export type Row<T> = T[];
+export type Colunn<T> = T[];

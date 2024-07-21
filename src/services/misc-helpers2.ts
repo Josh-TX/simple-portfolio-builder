@@ -1,6 +1,6 @@
-import { DayPrice, DayAFR, DayLogAFR } from "../models/models";
-import { ChartData, ChartDataColumn } from "./chartDataBuilder";
+import { DayPrice, DayAFR, DayLogAFR, ChartData, ChartDataColumn, GetUnionDaysResult, Row  } from "../models/models";
 import { getSum } from "./helpers";
+import { choleskyDecomposition, getCorrelation } from "./matrix-helper";
 
 export function interpolateDayPrices(dayPrices: DayPrice[]): DayPrice[]{
     var output: DayPrice[] = [];
@@ -71,8 +71,13 @@ export function getPortfolioDayPrices(dayPricess: DayPrice[][], weights: number[
 export function getAFRs(dayPrices: DayPrice[], returnDays: number): DayAFR[]{
     var exponent = 365.25 / returnDays;
     var afrs: DayAFR[] = [];
+    console.log("exponent", exponent)
     for (var i = returnDays; i < dayPrices.length; i++){
-        var afr = Math.pow((dayPrices[i].price / dayPrices[i - returnDays].price),  exponent)
+        //var afr = Math.pow((dayPrices[i].price / dayPrices[i - returnDays].price),  exponent)
+        var afr = dayPrices[i].price / dayPrices[i - returnDays].price
+        // if (i % 100 == 0 || afr > 30){
+        //     console.log(i, afr, "from " + dayPrices[i - returnDays].price + " to " + dayPrices[i].price)
+        // }
         afrs.push({
             ...dayPrices[i],
             afr
@@ -145,6 +150,18 @@ function getPriceColumns(timestamps: number[], dayLogAFRss: DayLogAFR[][]): Char
     return columns;
 }
 
+export function getUnionTimestamps(dayPricess: DayLogAFR[][]): number[] {
+    const timestampsSet = new Set<number>();
+    for (var darPrices of dayPricess) {
+        for (const dayPrice of darPrices) {
+            timestampsSet.add(dayPrice.timestamp);
+        }
+    }
+    var timestamps = Array.from(timestampsSet);
+    timestamps.sort((z1, z2) => z1 - z2);
+    return timestamps;
+}
+
 function getTimestamps(dayPricess: DayLogAFR[][], filterDays: string | null): number[] {
     const timestampsSet = new Set<number>();
     for (var darPrices of dayPricess) {
@@ -171,3 +188,148 @@ function getTimestamps(dayPricess: DayLogAFR[][], filterDays: string | null): nu
     timestamps.sort((z1, z2) => z1 - z2);
     return timestamps;
 }
+
+export function getCorrelationMatrix(dayLogAFRss: DayLogAFR[][], mustBePositiveSemiDefinite = false): number[][]{
+    if (!dayLogAFRss.length){
+        return []
+    }
+    var matrixSize = dayLogAFRss.length
+    var correlationMatrix: number[][] = Array.from({ length: matrixSize }, () => Array(matrixSize).fill(0));
+    for (var i = 0; i < matrixSize; i++) {
+        for (var j = i; j < matrixSize; j++) {
+            if (i === j) {
+                correlationMatrix[i][j] = 1;
+            } else {
+                var commonLogAfrs = getIntersectionDays([dayLogAFRss[i], dayLogAFRss[j]]);
+                var x = commonLogAfrs[0].map(z => z.logAfr);
+                var y = commonLogAfrs[1].map(z => z.logAfr);
+                var r = getCorrelation(x, y);
+                correlationMatrix[i][j] = r;
+                correlationMatrix[j][i] = r;
+            }
+        }
+    }
+    //if we're just displaying this matrix and not simulating anything with it, we can just stop here.
+    if (!mustBePositiveSemiDefinite){
+        return correlationMatrix;
+    }
+    //the choleskyDecomposition() function will return null if it's not positive semi-definite
+    var choleskyDecomp = choleskyDecomposition(correlationMatrix);
+    if (choleskyDecomp != null){
+        return correlationMatrix;
+    }
+    //at this point, the matrix we just calculated is not positive semi-definite. This means that it's technically an impossible correlation matrix.
+    //the reason this can happen is that each correlation is calculated with as much data as the 2 funds have in common.
+    //this should make each individual correlation more accurate, but it can occaisionally make impossible correlation matrices. This is more likely for large matrices
+    //So, to fix this, we'll just calculate a correlation matrix using just data that ALL the funds have in common. 
+
+    //I'll do this late
+    throw "todo: re-calculate correlation Matrix"
+}
+
+//assumes dayss are already sorted by timestamp
+export function getIntersectionDays<T extends {timestamp: number}>(dayss: Row<T>[]): Row<T>[]{
+    if (!dayss.length || dayss.some(z => !z.length)){
+        return [];
+    }
+    var lastIndexes: number[] = dayss.map(_ => 0);
+    var lastTimestamps: number[] = dayss.map(z => z[0].timestamp);
+    var outputRows: Row<T>[] = dayss.map(_ => []);
+    while(true){
+        var minValue = Math.min(...lastTimestamps);
+        var maxValue = Math.max(...lastTimestamps);
+        if (minValue == maxValue){
+            for (var i = 0; i < dayss.length; i++){
+                outputRows[i].push(dayss[i][lastIndexes[i]])
+            }
+            for (var i = 0; i < dayss.length; i++){
+                lastIndexes[i]++;
+                if (lastIndexes[i] >= dayss[i].length){
+                    return outputRows;
+                }
+                lastTimestamps[i] = dayss[i][lastIndexes[i]].timestamp
+            }
+        } else {
+            for (var i = 0; i < dayss.length; i++){
+                while (lastTimestamps[i] < maxValue){
+                    lastIndexes[i]++;
+                    if (lastIndexes[i] >= dayss[i].length){
+                        return outputRows;
+                    }
+                    lastTimestamps[i] = dayss[i][lastIndexes[i]!].timestamp
+                }
+            }
+        }
+    }
+}
+
+//assumes dayss are already sorted by timestamp
+export function getUnionDays<T extends {timestamp: number}>(dayss: Row<T>[]): GetUnionDaysResult<T>{
+    const timestampsSet = new Set<number>();
+    for (var days of dayss) {
+        for (const day of days) {
+            timestampsSet.add(day.timestamp);
+        }
+    }
+    var timestamps = Array.from(timestampsSet);
+    timestamps.sort((z1, z2) => z1 - z2);
+
+    var lastIndexes: number[] = dayss.map(_ => 0);
+    var dayRows: Row<(T | null)>[] = dayss.map(_ => []);
+    for(var timestamp of timestamps){
+        for (var i = 0; i < dayss.length; i++){
+            
+            if (lastIndexes[i] >= dayss[i].length){
+                dayRows[i].push(null);//timestamp is later than the latest timestamp in dayss[i]
+            } 
+            else if (dayss[i][lastIndexes[i]].timestamp == timestamp){
+                dayRows[i].push(dayss[i][lastIndexes[i]]);
+                lastIndexes[i]++;
+            } else {
+                dayRows[i].push(null);//timestamp is before than the earliest timestamp in dayss[i]
+            }
+        }
+    }
+    return {
+        timestamps: timestamps,
+        days: dayRows
+    };
+}
+
+export function matchDataToTimestamps<T extends {timestamp: number}>(days: Row<T>, timestamps: number[]): Row<T | null>{
+    var lastIndex = 0;
+    var output: (T | null)[] = [];
+    for(var timestamp of timestamps){
+        if (lastIndex >= days.length){
+            output.push(null);
+        } else {
+            while (lastIndex < days.length && days[lastIndex].timestamp < timestamp){
+                lastIndex++;
+            }
+            if (days[lastIndex].timestamp == timestamp){
+                output.push(days[lastIndex]);
+                lastIndex++;
+            } else {
+                output.push(null);
+            }
+        }
+    }
+    return output;
+}
+
+export function getAvgAfr(dayPrices: DayPrice[]): number {
+    var last = dayPrices[dayPrices.length - 1];
+    var dayDiff = Math.round((last.timestamp - dayPrices[0].timestamp) / 86400);
+
+    var avgAfr = ((last.price / dayPrices[0].price) ** (365 / dayDiff)) - 1;
+    return avgAfr;
+}
+
+export function everyNthItem<T>(arr: T[], n: number): T[] {
+    var output: T[] = [];
+    for (let i = 0; i < arr.length; i += n) {
+        output.push(arr[i]);
+    }
+    return output;
+}
+  

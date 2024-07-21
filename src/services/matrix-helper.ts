@@ -1,4 +1,4 @@
-import { ChartDataColumn } from "./chartDataBuilder";
+import { ChartDataColumn } from "../models/models";
 import { getSum } from "./helpers";
 
 
@@ -19,7 +19,7 @@ function multiply(matrixA: number[][], matrixB: number[][]): number[][] {
     const rowsB = matrixB.length;
     const colsB = matrixB[0].length;
     if (colsA !== rowsB) {
-        console.log("provided matrices: ", matrixA, matrixB);
+        console.warn("provided matrices: ", matrixA, matrixB);
         throw "The 2 provided matrices can't be multiplied"
     }
     const result: number[][] = Array.from({ length: rowsA }, () => Array(colsB).fill(0));
@@ -46,7 +46,7 @@ function generateStandardNormalSamples(columnCount: number, columnSize: number):
     return samples;
 }
 
-function choleskyDecomposition(matrix: number[][]): number[][] | null {
+export function choleskyDecomposition(matrix: number[][]): number[][] | null {
     const n = matrix.length;
     const L: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
 
@@ -89,7 +89,7 @@ export function generateData(
     return transformedSamples;
 }
 
-function getCorrelation(x: number[], y: number[]): number {
+export function getCorrelation(x: number[], y: number[]): number {
     const n = x.length;
     const meanX = getSum(x) / n;
     const meanY = getSum(y) / n;
@@ -98,46 +98,4 @@ function getCorrelation(x: number[], y: number[]): number {
     const varianceY = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0) / n;
     const denominator = Math.sqrt(varianceX * varianceY);
     return denominator === 0 ? 0 : covariance / denominator;
-}
-
-export function getCorrelationMatrix(dataColumns: ChartDataColumn[], mustBePositiveSemiDefinite = false): number[][]{
-    if (!dataColumns.length || !dataColumns[0].length){
-        return []
-    }
-    var columnSize = dataColumns[0].length
-    var correlationMatrix: number[][] = Array.from({ length: columnSize }, () => Array(columnSize).fill(0));
-    for (var i = 0; i < columnSize; i++) {
-        for (var j = i; j < columnSize; j++) {
-            if (i === j) {
-                correlationMatrix[i][j] = 1;
-            } else {
-                var x: number[] = [];
-                var y: number[] = [];
-                for (var k = 0; k < dataColumns.length; k++){
-                    if (dataColumns[k][i] != null && dataColumns[k][j] != null){
-                        x.push(dataColumns[k][i]!);
-                        y.push(dataColumns[k][j]!);
-                    }
-                }
-                var r = getCorrelation(x, y);
-                correlationMatrix[i][j] = r;
-                correlationMatrix[j][i] = r;
-            }
-        }
-    }
-    if (!mustBePositiveSemiDefinite){
-        return correlationMatrix;
-    }
-    //the choleskyDecomposition() function will return null if it's not positive semi-definite
-    var choleskyDecomp = choleskyDecomposition(correlationMatrix);
-    if (choleskyDecomp != null){
-        return correlationMatrix;
-    }
-    //at this point, the matrix we just calculated is not positive semi-definite. This means that it's technically an impossible correlation matrix.
-    //the reason this can happen is that each correlation is calculated with as much data as the 2 funds have in common.
-    //this should make each individual correlation more accurate, but it can occaisionally make impossible correlation matrices. This is more likely for large matrices
-    //So, to fix this, we'll just calculate a correlation matrix using just data that ALL the funds have in common. 
-
-    //I'll do this late
-    throw "todo: re-calculate correlation Matrix"
 }

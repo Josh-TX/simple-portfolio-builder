@@ -5,17 +5,16 @@ import TickerInputComponent from './TickerInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
 import { Ref, ref, toRaw, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { callWorker } from '../services/workerCaller';
-import { GetChartDataRequest, GetWeightsRequest, Portfolio, PortfolioSummary } from '../models/models';
+import { GetWeightsRequest, Portfolio, PortfolioSummary, ChartData } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
 import ScatterplotChart from './ScatterplotChart.vue';
 import { Parser } from 'expr-eval';
 import { debounce } from '../services/debouncer';
-import { ChartData } from '../services/chartDataBuilder';
 import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { getSD, getSum } from '../services/helpers';
-import { getCorrelationMatrix } from '../services/matrix-helper';
+//import { getCorrelationMatrix } from '../services/matrix-helper';
 import * as miscHelpers from "../services/misc-helpers2";
+import * as WorkerOperations from '../services/WorkerOperations';
 
 
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
@@ -45,7 +44,7 @@ async function generate() {
         segmentCount: segmentCount.value,
         filterExpr: filterExpr.value
     };
-    var weightss = await callWorker("getWeights", request);
+    var weightss = await WorkerOperations.getWeights(request);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
     var intersectionDayPricess = miscHelpers.getIntersectionDayPrices(dayPricess);
@@ -105,55 +104,55 @@ function updateHighlightedIndexes() {
     }
 }
 
-function getPorfolioName(tickers: string[], weights: number[]){
-    var name = "";
-    var totalWeight = getSum(weights);
-    for (var i = 0; i < tickers.length; i++){
-        if (weights[i] > 0){
-            name += `${tickers[i]} ${Math.round(weights[i] / totalWeight * 1000) / 10}%,`;
-        }
-    }
-    return name.replace(/,+$/, '');
-}
+// function getPorfolioName(tickers: string[], weights: number[]){
+//     var name = "";
+//     var totalWeight = getSum(weights);
+//     for (var i = 0; i < tickers.length; i++){
+//         if (weights[i] > 0){
+//             name += `${tickers[i]} ${Math.round(weights[i] / totalWeight * 1000) / 10}%,`;
+//         }
+//     }
+//     return name.replace(/,+$/, '');
+// }
 
 async function pointClicked(summary: PortfolioSummary | null) {
     selectedSummary.value = summary;
     if (!summary) {
         return;
     }
-
-    var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
-    var promises = tickerArray.map(z => getPriceHistory(z));
-    var dayPricess = await Promise.all(promises);
-    var request: GetChartDataRequest = {
-        dayPricess: dayPricess,
-        tickers: tickerArray,
-        filterDays: tickerInputs.filterDays,
-        returnDays: tickerInputs.returnDays,
-        smoothDays: tickerInputs.smoothDays
-    };
-    var chartData = await callWorker("getChartData", request);
-    selectedChartData.value = chartData;
-    var averages: number[] = [];
-    var sds: number[] = [];
-    for (var i = 0; i < chartData.dataColumns[0].length; i++){
-        var nums = chartData.dataColumns.map(z => z[i]).filter(z => z != null).map(z => z!); //typescript being dumb
-        var avg = getSum(nums) / nums.length;
-        var sd = getSD(nums)!;
-        averages.push(avg);
-        sds.push(sd);
-    }
-    var portfolio: Portfolio = {
-        name: getPorfolioName(tickerArray, summary.weights),
-        smoothDays: tickerInputs.smoothDays,
-        returnDays: tickerInputs.returnDays,
-        tickers: tickerArray,
-        weights: summary.weights,
-        avgLogAfrs: averages,
-        stdDevLogAfrs: sds,
-        correlationMatrix: getCorrelationMatrix(chartData.dataColumns)
-    };
-    selectedPortfolio.value = portfolio;
+    alert("not implemented")
+    // var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
+    // var promises = tickerArray.map(z => getPriceHistory(z));
+    // var dayPricess = await Promise.all(promises);
+    // var request: GetChartDataRequest = {
+    //     dayPricess: dayPricess,
+    //     tickers: tickerArray,
+    //     filterDays: tickerInputs.filterDays,
+    //     returnDays: tickerInputs.returnDays,
+    //     smoothDays: tickerInputs.smoothDays
+    // };
+    // var chartData = getWeightsWorker.getWeights
+    // selectedChartData.value = chartData;
+    // var averages: number[] = [];
+    // var sds: number[] = [];
+    // for (var i = 0; i < chartData.dataColumns[0].length; i++){
+    //     var nums = chartData.dataColumns.map(z => z[i]).filter(z => z != null).map(z => z!); //typescript being dumb
+    //     var avg = getSum(nums) / nums.length;
+    //     var sd = getSD(nums)!;
+    //     averages.push(avg);
+    //     sds.push(sd);
+    // }
+    // var portfolio: Portfolio = {
+    //     name: getPorfolioName(tickerArray, summary.weights),
+    //     smoothDays: tickerInputs.smoothDays,
+    //     returnDays: tickerInputs.returnDays,
+    //     tickers: tickerArray,
+    //     weights: summary.weights,
+    //     avgLogAfrs: averages,
+    //     stdDevLogAfrs: sds,
+    //     correlationMatrix: getCorrelationMatrix(chartData.dataColumns)
+    // };
+    // selectedPortfolio.value = portfolio;
 }
 
 function simulatePortfolio(){

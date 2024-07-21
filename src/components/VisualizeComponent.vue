@@ -3,45 +3,65 @@
 import LineChart from './LineChart.vue';
 import TickerInputComponent from './TickerInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
-import { Ref, ref, watch } from 'vue'
-import { ChartData } from '../services/chartDataBuilder';
-import { callWorker } from '../services/workerCaller';
+import { Ref, ref, ShallowRef, watch } from 'vue'
 import { debounce } from '../services/debouncer';
-import { GetChartDataRequest } from '../models/models';
+import { DayLogAFR, GetLogAfrsRequest, LineDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
-import { getCorrelationMatrix } from '../services/matrix-helper';
-import { getSD, getSum } from '../services/helpers';
+import { getSD } from '../services/helpers';
+import * as WorkerOperations from '../services/WorkerOperations';
+import * as MiscHelpers2 from '../services/misc-helpers2';
 
 
 
-var chartData: Ref<ChartData | null> = ref(null);
+var lineDataContainer: ShallowRef<LineDataContainer | null> = ref(null);
 var correlationMatrix: Ref<number[][] | null> = ref(null);
 var tickerArray: Ref<string[] | null> = ref(null);
 var averages: Ref<string[] | null> = ref(null);
 var sds: Ref<string[] | null> = ref(null);
+
+var dayLogAfrss: DayLogAFR[][] = [];
 
 async function updateData(){
     var tempTickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     tickerArray.value = tempTickerArray;
     var promises = tempTickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
-    var request: GetChartDataRequest = {
+    var request: GetLogAfrsRequest = {
         dayPricess: dayPricess,
         tickers: tempTickerArray,
         filterDays: tickerInputs.filterDays,
         returnDays: tickerInputs.returnDays,
         smoothDays: tickerInputs.smoothDays
     };
-    chartData.value = await callWorker("getChartData", request);
-    correlationMatrix.value = getCorrelationMatrix(chartData.value.dataColumns);
+    dayLogAfrss = await WorkerOperations.getLogAfrs(request);
+    var timestamps = MiscHelpers2.everyNthItem(MiscHelpers2.getUnionTimestamps(dayLogAfrss), 10);
+    console.log(timestamps)
+    lineDataContainer.value = {
+        timestamps: timestamps,
+        seriesLabels: tempTickerArray,
+        LineDatas: [
+            {
+                data: dayLogAfrss.map(dayLogAfrs => MiscHelpers2.matchDataToTimestamps(dayLogAfrs, timestamps).map(z => z ? z.afr : null)),
+                labelCallback: z => z != null ? z.toFixed(2) : "",
+                yAxisTitle: "AFR",
+                type: "return"
+            },
+            {
+                data: dayLogAfrss.map(dayLogAfrs => MiscHelpers2.matchDataToTimestamps(dayLogAfrs, timestamps).map(z => z ? Math.log(z.afr)/Math.log(2) : null)),
+                labelCallback: z => z != null ? z.toFixed(2) : "",
+                yAxisTitle: "Log AFR",
+                type: "log"
+            },
+        ]
+    }
+    correlationMatrix.value = MiscHelpers2.getCorrelationMatrix(dayLogAfrss);
     averages.value = [];
     sds.value = [];
     for (var i = 0; i < tempTickerArray.length; i++){
-        var nums = chartData.value.dataColumns.map(z => z[i]).filter(z => z != null).map(z => z!); //typescript being dumb
-        var avg = getSum(nums) / nums.length;
-        var sd = getSD(nums)!;
-        averages.value.push((Math.round((Math.pow(2, avg)-1) * 1000) / 10) + "%");
-        sds.value.push((Math.round((Math.pow(2, sd)-1) * 1000) / 10) + "%");
+        var avgAfr = MiscHelpers2.getAvgAfr(dayLogAfrss[i]);
+        var logAfrSd = getSD(dayLogAfrss[i].map(z => z.logAfr))!;
+        averages.value.push((Math.round(avgAfr * 1000) / 10) + "%");
+        sds.value.push((Math.round((Math.pow(2, logAfrSd)-1) * 1000) / 10) + "%");
     }
 }
 
@@ -58,7 +78,7 @@ watch(() => tickerInputs.tickers, () => {
     debounce("a", 1000, () => updateData());
 });
 
-function roundCor (num: number) { return num == 1 ? 1 : num.toFixed(2) }
+function roundTo2 (num: number) { return num == 1 ? 1 : num.toFixed(2) }
 
 updateData();
 </script>
@@ -66,7 +86,7 @@ updateData();
 <template>
     <TickerInputComponent />
     <div style="height: 50vh; position: relative; width: 100%;" >
-        <LineChart :chartData="chartData"/> 
+        <LineChart :dataContainer="lineDataContainer"/> 
     </div>
     <div style="display: flex; gap: 48px;">
         <table v-if="averages && sds">
@@ -88,7 +108,7 @@ updateData();
             </tr>
             <tr v-for="(ticker, index) in tickerArray">
                 <td style="padding: 0 4px;">{{ ticker }}</td>
-                <td style="padding: 0 4px;" v-for="r in correlationMatrix![index]">{{ roundCor(r) }}</td>
+                <td style="padding: 0 4px;" v-for="r in correlationMatrix![index]">{{ roundTo2(r) }}</td>
             </tr>
         </table>
     </div>

@@ -4,7 +4,7 @@ import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { GetPortfolioSimulationsRequest, HistogramContainer, HistogramDataset, SimulatedPortfolio } from '../models/models';
 import BarChart from './BarChart.vue';
 import { ref, Ref } from 'vue';
-import { callWorker } from '../services/workerCaller';
+import * as WorkerOperations from '../services/WorkerOperations';
 
 var histogram: Ref<HistogramContainer | null> = ref(null);
 
@@ -50,7 +50,7 @@ async function updateData() {
             simulationCount: 100,
             years: 20
         };
-        var results = await callWorker("getPortfolioSimulations", request);
+        var results: any[] =[];//await WorkerOperations.getWeights(request);
         simulatedPortfolios.push({ ...selectedPortfolio, results: results });
     }
     histogram.value = getHistogram(simulatedPortfolios);
