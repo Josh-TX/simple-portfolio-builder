@@ -1,57 +1,50 @@
-import { WorkerInputWrapper, WorkerInputData, WorkerOutputWrapper, WorkerOutputData, WorkerProgress, OperationName } from "../models/worker-models";
+import { WorkerInputWrapper, WorkerInputData, WorkerOutputWrapper, WorkerOutputData, OperationName } from "../models/worker-models";
 
+type ActiveOperation = {
+    id: string,
+    index: number,
+    callback: (responseData: WorkerOutputData) => any
+}
 
+//there's about 15ms of overhead to spin up a new worker, so reusing them is slightly more performant, particularly when doing many smaller operations. 
+var poolSize = 4;
+var activeOperations: ActiveOperation[] = [];
 
+var workerPool: Worker[] = [];
 
-
-//there's about 15ms of overhead to spin up a new worker, so keeping one active is slightly more performant
-const worker = new Worker(new URL('../worker.ts', import.meta.url), {
-    type: 'module',
-});
-
-var idPromiseCallbackMap: { [id: string]: (responseData: WorkerOutputData) => any } = {}
-var idProgressCallbackMap: { [id: string]: (progress: number) => any } = {}
-
-worker.addEventListener('message', (event: MessageEvent<WorkerOutputWrapper | WorkerProgress>) => {
-    var workerMsg = event.data;
-    if (isWorkerProgress(workerMsg)){
-        var progressCallback = idProgressCallbackMap[workerMsg.id];
-        if (progressCallback){
-            progressCallback(workerMsg.progress);
+for (var i = 0; i < poolSize; i++){
+    let worker = new Worker(new URL('../worker.ts', import.meta.url), {
+        type: 'module',
+    });
+    worker.addEventListener('message', (event: MessageEvent<WorkerOutputWrapper>) => {
+        var workerMsg = event.data;
+        var activeOperation = activeOperations.find(z => z.id == workerMsg.id);
+        if (!activeOperation){
+            throw "couldn't find operation with id " + workerMsg.id;
         }
-    } else {
-        var promiseCallback = idPromiseCallbackMap[workerMsg.id];
-        if (promiseCallback){
-            promiseCallback(workerMsg.data);
-        } else {
-            console.warn("no worker callback") //shouldn't be possible
-        }
-        delete idProgressCallbackMap[workerMsg.id];
-        delete idPromiseCallbackMap[workerMsg.id];
-    }
-});
+        activeOperation.callback(workerMsg.data);
+        activeOperations = activeOperations.filter(z => z.id != workerMsg.id);
+    });
+    workerPool.push(worker);
+}
 
-
-export function callWorker(name: OperationName, input: WorkerInputData, progressCallback?: (progress: number) => any | undefined): Promise<WorkerOutputData>{
+export function callWorker(name: OperationName, input: WorkerInputData): Promise<WorkerOutputData>{
     var workerMsg: WorkerInputWrapper = { 
         id: getRandomString(),
         name: name,
         data: input
     }
-    if (progressCallback){
-        idProgressCallbackMap[workerMsg.id] = progressCallback
-    }
+    var workerOpCounts = new Array(poolSize).fill(0);
+    activeOperations.forEach(z => workerOpCounts[z.index]++);
+    var index = workerOpCounts.indexOf(Math.min(...workerOpCounts));
     return new Promise((resolve) => {
-        idPromiseCallbackMap[workerMsg.id] = resolve
-        worker.postMessage(workerMsg);
+        activeOperations.push({
+            id: workerMsg.id,
+            index: index,
+            callback: resolve
+        });
+        workerPool[index].postMessage(workerMsg);
     });
-}
-
-function isWorkerProgress(workerMsg: WorkerOutputWrapper | WorkerProgress): workerMsg is WorkerProgress {
-    if ((<WorkerProgress>workerMsg).progress != null){
-        return true;
-    }
-    return false;
 }
 
 function getRandomString(): string {

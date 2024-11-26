@@ -1,152 +1,83 @@
-import { ChartData, ChartDataColumn, DayPrice } from "../models/models";
-import { flattenArray, getDistinct, getSum } from "./helpers";
+import { DayVal, LineChartDataInputs, LineDataContainer } from "../models/models";
+import * as MiscHelpers2 from '../services/misc-helpers2';
 
-export class ChartDataBuilder{
-    private _tickers: string[];
-    private _dayPricess: DayPrice[][];
-    private _filterDays: string = "";
-    private _smoothDays: number = 0;
-    private _returnDays: number = 0;
+export function getLineDataContainer(
+        tickers: string[], 
+        dayPricess: DayVal[][], 
+        lineInputs1: LineChartDataInputs, 
+        lineInputs2: LineChartDataInputs,
+        portfolioWeights: number[] | null
+    ): LineDataContainer{
 
-    constructor(dayPricess: DayPrice[][], tickers: string[]){
-        this._tickers = tickers;
-        this._dayPricess = dayPricess
-    }
-
-    setFilterDays(filterDays: string): ChartDataBuilder{
-        this._filterDays = filterDays;
-        return this;
-    }
-
-    setReturnDays(returnDays: number): ChartDataBuilder{
-        this._returnDays = returnDays;
-        return this;
-    }
-
-    setSmoothDays(smoothDays: number): ChartDataBuilder{
-        this._smoothDays = smoothDays
-        return this;
-    }
-
-    async build(): Promise<ChartData>{
-        var timestamps = getDistinct(flattenArray(this._dayPricess.map(dayPrices => dayPrices.map(z => z.timestamp))));
-        timestamps.sort((z1, z2) => z1 - z2);
-        if (this._filterDays){
-            if (this._filterDays == "MTWTF"){
-                //do nothing
+    var seriesLabels = [...tickers, "portfolio"];
+    var interpolatedPricess = dayPricess.map(dayPrices => MiscHelpers2.interpolateDayPrices(dayPrices));
+    var rebalanceIndexes1: number[] = [];
+    var rebalanceIndexes2: number[] = [];
+    var firstCommonTimestamp =  MiscHelpers2.getFirstCommonTimestamp(dayPricess);
+    var getDataFunc = function(input: LineChartDataInputs, rebalanceIndexes: number[]){
+        var pricess = interpolatedPricess
+        if (input.mode == "price" && input.equalPrice){
+            pricess = pricess.map(prices => MiscHelpers2.getEqualizePrices(prices, firstCommonTimestamp));
+        }
+        var intersectionPricess = MiscHelpers2.getIntersectionDayPricess(pricess);
+        if (portfolioWeights){
+            var portfolioPrices = MiscHelpers2.getPortfolioDayPrices(intersectionPricess, portfolioWeights, 365);
+            pricess = [...pricess, portfolioPrices]
+        }
+        if (input.mode == "none"){
+            return pricess.map(z => []);
+        }
+        if (input.mode == "price"){
+            return pricess;
+        }
+        if (input.mode == "portfolioHoldings"){
+            if (!portfolioWeights){
+                throw "portfolioWeights required for portfolioHoldings mode"
             }
-            else if (this._filterDays == "MWF"){
-                timestamps = timestamps.filter(z => [1,3,5].includes(new Date(z * 1000).getDay()));
-            }
-            else if (this._filterDays == "F"){
-                timestamps = timestamps.filter(z => new Date(z * 1000).getDay() == 5);
-            } else {
-                throw "unknown filterDays code";
-            }
+            var portfolioPricess = MiscHelpers2.getPortfolioDayPricess(intersectionPricess, portfolioWeights, 365, rebalanceIndexes);
+            portfolioPricess.push([]);//extra item because the portfolio row is blank
+            return portfolioPricess;
         }
-        var dataColumns: ChartDataColumn[] = [];
-        for(var timestamp of timestamps){
-            var dataColumn: ChartDataColumn = [];
-            for (var dayPrices of this._dayPricess){
-                var foundDayPrice = dayPrices.find(z => z.timestamp == timestamp);
-                dataColumn.push(foundDayPrice ? foundDayPrice.price : null);
-            }
-            dataColumns.push(dataColumn);
+        var returnss = pricess.map(prices => MiscHelpers2.getReturns(prices, input.returnDays));
+        var extReturnss = returnss.map(returns => MiscHelpers2.getExtrapolatedReturns(returns, input.returnDays, input.extrapolateDays));
+        if (input.mode == "returns" && input.smoothDays == 0){
+            return extReturnss;
         }
-        var chartData = {
-            timestamps: timestamps,
-            seriesLabels: this._tickers,
-            dataColumns: dataColumns
-        };
-        chartData = this.getLogAfrs(chartData, this._returnDays);
-        if (this._smoothDays){
-            chartData = this.smoothData(chartData, this._smoothDays);
+        var logReturnss = extReturnss.map(extReturns => MiscHelpers2.getLogReturns(extReturns)); 
+        var smoothedLogReturnss = logReturnss.map(logReturns => MiscHelpers2.smoothData(logReturns, input.smoothDays));
+        if (input.mode == "logReturns"){
+            return smoothedLogReturnss;
         }
-        return chartData;
+        if (input.mode == "returns"){
+            var smoothedReturnss = smoothedLogReturnss.map(smoothedLogReturns => MiscHelpers2.getExponentReturns(smoothedLogReturns));
+            return smoothedReturnss;
+        } else {
+            throw "unknown mode"
+        }
     }
-
-    private getLogAfrs(chartData: ChartData, returnDays: number): ChartData{
-        if (chartData.timestamps.length < 2){
-            return chartData;
-        }
-        var indexDiff = Math.ceil(returnDays * this._filterDays.length / 7);
-        var newTimestamps: number[] = [];
-        var newDataColumns: ChartDataColumn[] = [];
-        var log2 = Math.log(2);
-        for (var i = indexDiff; i < chartData.timestamps.length; i++){
-            newTimestamps.push(chartData.timestamps[i]);
-            var newDataColumn: ChartDataColumn = [];
-            for (var j = 0; j < chartData.seriesLabels.length; j++){
-                var startVal = chartData.dataColumns[i - indexDiff][j];
-                var endVal = chartData.dataColumns[i][j];
-                if (startVal == null || endVal == null){
-                    newDataColumn.push(null)
-                } else {
-                    var factorReturn = endVal / startVal;
-                    var afr = Math.pow(factorReturn, 365 / returnDays);
-                    newDataColumn.push(Math.log(afr) / log2)
-                }
-            }
-            newDataColumns.push(newDataColumn)
-        }
-        return {
-            timestamps: newTimestamps,
-            seriesLabels: [...chartData.seriesLabels],
-            dataColumns: newDataColumns
-        };
+    var data1: DayVal[][] = getDataFunc(lineInputs1, rebalanceIndexes1);
+    var data2: DayVal[][] = getDataFunc(lineInputs2, rebalanceIndexes2);
+    var timestamps = MiscHelpers2.everyNthItem(MiscHelpers2.getUnionTimestamps([...data1, ...data2]), 3);
+    var start = timestamps.findIndex(z => z >= firstCommonTimestamp);
+    var output: LineDataContainer = {
+        timestamps: timestamps,
+        seriesLabels: seriesLabels,
+        LineDatas: [
+            {
+                data: data1.map(data => MiscHelpers2.matchDataToTimestamps(timestamps, data)),
+                labelCallback: z => z != null ? z.toFixed(2) : "",
+                yAxisTitle: lineInputs1.mode,
+                type: lineInputs1.mode,
+                rebalanceIndexes: rebalanceIndexes1 && lineInputs1.showRebalance ? rebalanceIndexes1.map(z => start + Math.ceil(z / 3) - 1) : null,
+            },
+            {
+                data: data2.map(data => MiscHelpers2.matchDataToTimestamps(timestamps, data)),
+                labelCallback: z => z != null ? z.toFixed(2) : "",
+                yAxisTitle: lineInputs2.mode,
+                type: lineInputs2.mode,
+                rebalanceIndexes: rebalanceIndexes2 && lineInputs2.showRebalance ? rebalanceIndexes2.map(z => start + Math.ceil(z / 3) - 1) : null,
+            },
+        ]
     }
-    
-    private smoothData(chartData: ChartData, days: number): ChartData{ 
-        var indexDiff = Math.floor((days - 1) * this._filterDays.length / 7 / 2);
-        var newDataColumns: ChartDataColumn[] = [];
-        for (var i = 0; i < chartData.timestamps.length; i++){
-            var newDataColumn: ChartDataColumn = [];
-            for (var j = 0; j < chartData.seriesLabels.length; j++){
-                if (chartData.dataColumns[i][j] == null){
-                    newDataColumn[j] = null;
-                    continue; 
-                }
-                var left: number[] = [];
-                var right: number[] = [];
-                for (var k = 0; k < indexDiff; k++){
-                    var leftIndex = i - k - 1;
-                    var rightIndex = i + k + 1;
-                    if (leftIndex >= 0 && chartData.dataColumns[leftIndex][j] != null){
-                        left.push(chartData.dataColumns[leftIndex][j]!)
-                    }
-                    if (rightIndex < chartData.timestamps.length && chartData.dataColumns[rightIndex][j] != null){
-                        right.push(chartData.dataColumns[rightIndex][j]!)
-                    }
-                }
-                var leftWeights = this.getWeights(left.length, true);
-                var rightWeights = this.getWeights(right.length, false);
-                var sumWeight = getSum(leftWeights) + getSum(rightWeights) + 1;
-                var sumValue = chartData.dataColumns[i][j]!;
-                for (var k = 0; k < left.length; k++){
-                    sumValue += left[k] * leftWeights[k];
-                }
-                for (var k = 0; k < right.length; k++){
-                    sumValue += right[k] * rightWeights[k];
-                }
-                newDataColumn[j] = sumValue / sumWeight;
-            }
-            newDataColumns.push(newDataColumn)
-        }
-        return {
-            timestamps: chartData.timestamps,
-            seriesLabels: [...chartData.seriesLabels],
-            dataColumns: newDataColumns
-        };
-    }
-    private getWeights(len: number, isLeft: boolean): number[]{
-        var weights: number[] = []
-        for (var i = 0; i < len; i++){
-            weights.push(1);
-            //weights.push((len - i) / (len + 1))
-        }
-        if (isLeft){
-            weights.reverse();
-        }
-        return weights
-    }
+    return output;
 }

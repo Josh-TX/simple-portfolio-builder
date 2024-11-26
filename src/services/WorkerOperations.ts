@@ -1,6 +1,17 @@
 import { callWorker } from "./WorkerCaller";
-import {Operation_GetChartData, Operation_GetLogAfrs, Operation_GetWeights} from "../models/worker-models";
+import { AllWorkerOperations } from "../models/worker-models";
+import { GetWeightsRequest, DayPrice, DayReturn } from "../models/models";
 
-export var getWeights: Operation_GetWeights = (i) => callWorker("getWeights", i);
-export var getChartData: Operation_GetChartData = (i) => callWorker("getChartData", i);
-export var getLogAfrs: Operation_GetLogAfrs = (i) => callWorker("getLogAfrs", i);
+class WorkerOperations implements AllWorkerOperations {
+    getWeights(input: GetWeightsRequest): Promise<number[][]> {
+        return callWorker("getWeights", input);
+    }
+    getInterpolatedPrices(input: DayPrice[]): Promise<DayPrice[]> {
+        return callWorker("getInterpolatedPrices", input);
+    }
+    getReturns(input: {dayPrices: DayPrice[], returnDays: number}): Promise<DayReturn[]> {
+        return callWorker("getReturns", input);
+    }
+}
+
+export var workerOperations = new WorkerOperations();

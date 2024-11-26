@@ -1,4 +1,4 @@
-import { DayPrice } from "../models/models";
+import { DayVal, LineChartDataInputs } from "../models/models";
 import LZString from 'lz-string';
 
 export type LocalSettings = { 
@@ -10,12 +10,15 @@ export type LocalSettings = {
     segmentCount?: number | undefined
     filterExpr?: string | undefined
     highlightExpr?: string | undefined
+    lineChartInputs1?: LineChartDataInputs | undefined
+    lineChartInputs2?: LineChartDataInputs | undefined
 }
 
 
 type tickerRecord = { 
     ticker: string,
-    insertTime: number
+    insertTime: number,
+    size: number
 }
 type CachedData = {
     insertTime: number,
@@ -23,6 +26,7 @@ type CachedData = {
 }
 
 var MAXCACHEHOURS = 48;
+var MAXCACHESIZE = 3000000;
 
 
 class LocalSettingsService {
@@ -40,17 +44,7 @@ class LocalSettingsService {
         var storedTickerRecords = localStorage["ticker-records"];
         if (storedTickerRecords){
             this.tickerRecords = JSON.parse(storedTickerRecords);
-            var tickersToRemove: string[] = [];
-            for(var tickerRecord of this.tickerRecords){
-                var msDiff = (new Date().getTime() / 1000) - tickerRecord.insertTime;
-                var hourDiff = msDiff / (1000 & 60 * 60);
-                if (hourDiff > MAXCACHEHOURS){
-                    tickersToRemove.push(tickerRecord.ticker);
-                    delete localStorage[tickerRecord.ticker];
-                }
-            }
-            this.tickerRecords = this.tickerRecords.filter(z => !tickersToRemove.includes(z.ticker));
-
+            this.cleanCache();
         } else {
             this.tickerRecords = [];
         }
@@ -64,8 +58,8 @@ class LocalSettingsService {
         return this.localSettings[key]
     }
 
-    setDayPrices(ticker: string, dayPrices: DayPrice[]){
-        var arr = dayPrices.map(z => ([z.timestamp, z.price]));
+    setDayPrices(ticker: string, dayPrices: DayVal[]){
+        var arr = dayPrices.map(z => ([z.timestamp, z.val]));
         var compressed = LZString.compress(JSON.stringify(arr));
         var cachedData: CachedData = {
             insertTime: Math.round(new Date().getTime() / 1000),
@@ -74,30 +68,47 @@ class LocalSettingsService {
         try {
             localStorage[ticker] = JSON.stringify(cachedData);
             this.tickerRecords = this.tickerRecords.filter(z => z.ticker != ticker);
-            this.tickerRecords.push({ticker: ticker, insertTime: cachedData.insertTime});
+            this.tickerRecords.push({ticker: ticker, insertTime: cachedData.insertTime, size: compressed.length});
             localStorage["ticker-catalog"] = JSON.stringify(this.tickerRecords);
+            this.cleanCache();
         } catch (e){
 
         }
     }
 
-    getDayPrices(ticker: string): DayPrice[] | null{
+    getDayPrices(ticker: string): DayVal[] | null{
         var json = localStorage[ticker];
         if (!json){
             return null;
         }
         var cachedData: CachedData = JSON.parse(json);
         var msDiff = (new Date().getTime() / 1000)  - cachedData.insertTime;
-        var hourDiff = msDiff / (1000 & 60 * 60);
+        var hourDiff = msDiff / (1000 * 60 * 60);
         if (hourDiff > MAXCACHEHOURS) {
             return null;
         }
         var arr: [number, number][] = JSON.parse(LZString.decompress(cachedData.compressedData));
-        var dayPrices: DayPrice[] = arr.map(z => ({
+        var dayPrices: DayVal[] = arr.map(z => ({
             timestamp: z[0],
-            price: z[1]
+            val: z[1]
         }));
         return dayPrices;
+    }
+
+    private cleanCache(){
+        var tickerRecordsToRemove: string[] = [];
+        this.tickerRecords.sort((z1, z2) => z1.insertTime - z2.insertTime);
+        var sumSize = 0;
+        for(var tickerRecord of this.tickerRecords){
+            var msDiff = (new Date().getTime() / 1000) - tickerRecord.insertTime;
+            var hourDiff = msDiff / (1000 * 60 * 60);
+            if (hourDiff > MAXCACHEHOURS || sumSize + tickerRecord.size > MAXCACHESIZE){
+                tickerRecordsToRemove.push(tickerRecord.ticker);
+                delete localStorage[tickerRecord.ticker];
+            }
+            sumSize += tickerRecord.size;
+        }
+        this.tickerRecords = this.tickerRecords.filter(z => !tickerRecordsToRemove.includes(z.ticker));
     }
 }
 

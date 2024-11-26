@@ -6,9 +6,35 @@ export type TickerInputs = {
     filterDays: string,
 }
 
+export type LineChartMode = "price" | "returns" | "logReturns" | "portfolioHoldings" | "none"
+
+export type LineChartDataInputs = {
+    mode: LineChartMode,
+    returnDays: number,
+    smoothDays: number,
+    equalPrice: boolean,
+    extrapolateDays: number,
+    showRebalance: boolean,
+}
+
 export type DayPrice = {
     timestamp: number,
     price: number
+}
+
+export type DayVal = {
+    timestamp: number,
+    val: number
+}
+
+export type DayReturn = {
+    timestamp: number,
+    return: number
+}
+
+export type DayLogReturn = {
+    timestamp: number,
+    logReturn: number
 }
 
 export type DayAFR = {
@@ -87,10 +113,6 @@ export type HistogramDataset = {
 }
 
 
-export type LineChartType = "prices" | "returns" | "logreturns"
-export type LineChartLabels = "percent" | "afr" | "log2afr"
-export type LineChartSecondLabel = ""
-
 export type ChartData = {
     timestamps: number[],
     seriesLabels: string[],
@@ -112,13 +134,14 @@ export type LineDataContainer = {
     LineDatas: LineData[],
 }
 export type LineData = {
-    type: LineDataType,
+    type: LineChartMode,
     data: Row<number | null>[], //outer array's length should match seriesLabels.length, innerArray should match timestamps.length
     labelCallback: (val: number | null) => string,
-    yAxisTitle: string
+    yAxisTitle: string,
+    rebalanceIndexes: number[] | null,
 }
 
-export type LineDataType = "price" | "return" | "log"
+//export type LineDataType = "price" | "returns" | "logReturns"
 
 export type GetUnionDaysResult<T> = {
     timestamps: number[]

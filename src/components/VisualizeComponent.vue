@@ -2,14 +2,18 @@
 
 import LineChart from './LineChart.vue';
 import TickerInputComponent from './TickerInputComponent.vue';
+import LineChartInputComponent from './LineChartInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
-import { Ref, ref, ShallowRef, watch } from 'vue'
+import { reactive, Reactive, Ref, ref, ShallowRef, watch } from 'vue'
 import { debounce } from '../services/debouncer';
-import { DayLogAFR, GetLogAfrsRequest, LineDataContainer } from '../models/models';
+import { DayLogAFR, DayReturn, DayVal, GetLogAfrsRequest, LineChartDataInputs, LineDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
 import { getSD } from '../services/helpers';
-import * as WorkerOperations from '../services/WorkerOperations';
+import { workerOperations } from '../services/WorkerOperations';
+import { operationHandlers } from '../services/WorkerHandlers';
 import * as MiscHelpers2 from '../services/misc-helpers2';
+import { getLineDataContainer } from '../services/chartDataBuilder'
+import { localSettingsService } from '../services/localSettingsService';
 
 
 
@@ -21,49 +25,92 @@ var sds: Ref<string[] | null> = ref(null);
 
 var dayLogAfrss: DayLogAFR[][] = [];
 
+var lineInputs1: Reactive<LineChartDataInputs> = reactive(localSettingsService.getValue("lineChartInputs1") || { mode: "price", equalPrice: true, returnDays: 30, smoothDays: 5, extrapolateDays: 365, showRebalance: false});
+var lineInputs2: Reactive<LineChartDataInputs> = reactive(localSettingsService.getValue("lineChartInputs2") || { mode: "logReturns", equalPrice: true, returnDays: 30, smoothDays: 5, extrapolateDays: 365, showRebalance: false});
+
 async function updateData(){
     var tempTickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     tickerArray.value = tempTickerArray;
-    var promises = tempTickerArray.map(z => getPriceHistory(z));
-    var dayPricess = await Promise.all(promises);
-    var request: GetLogAfrsRequest = {
-        dayPricess: dayPricess,
-        tickers: tempTickerArray,
-        filterDays: tickerInputs.filterDays,
-        returnDays: tickerInputs.returnDays,
-        smoothDays: tickerInputs.smoothDays
-    };
-    dayLogAfrss = await WorkerOperations.getLogAfrs(request);
-    var timestamps = MiscHelpers2.everyNthItem(MiscHelpers2.getUnionTimestamps(dayLogAfrss), 10);
-    console.log(timestamps)
-    lineDataContainer.value = {
-        timestamps: timestamps,
-        seriesLabels: tempTickerArray,
-        LineDatas: [
-            {
-                data: dayLogAfrss.map(dayLogAfrs => MiscHelpers2.matchDataToTimestamps(dayLogAfrs, timestamps).map(z => z ? z.afr : null)),
-                labelCallback: z => z != null ? z.toFixed(2) : "",
-                yAxisTitle: "AFR",
-                type: "return"
-            },
-            {
-                data: dayLogAfrss.map(dayLogAfrs => MiscHelpers2.matchDataToTimestamps(dayLogAfrs, timestamps).map(z => z ? Math.log(z.afr)/Math.log(2) : null)),
-                labelCallback: z => z != null ? z.toFixed(2) : "",
-                yAxisTitle: "Log AFR",
-                type: "log"
-            },
-        ]
-    }
-    correlationMatrix.value = MiscHelpers2.getCorrelationMatrix(dayLogAfrss);
-    averages.value = [];
-    sds.value = [];
-    for (var i = 0; i < tempTickerArray.length; i++){
-        var avgAfr = MiscHelpers2.getAvgAfr(dayLogAfrss[i]);
-        var logAfrSd = getSD(dayLogAfrss[i].map(z => z.logAfr))!;
-        averages.value.push((Math.round(avgAfr * 1000) / 10) + "%");
-        sds.value.push((Math.round((Math.pow(2, logAfrSd)-1) * 1000) / 10) + "%");
-    }
+
+
+    var seriesLabels = [...tempTickerArray];
+    var priceHistoryPromises = tempTickerArray.map(z => getPriceHistory(z));
+    var dayPricess = await Promise.all(priceHistoryPromises);
+    // var interpolatedPricess = dayPricess.map(dayPrices => MiscHelpers2.interpolateDayPrices(dayPrices));
+    // var intersectionPricess = MiscHelpers2.getIntersectionDayPrices(interpolatedPricess);
+    // if ((lineInputs1.mode == "price" && lineInputs1.equalPrice) || lineInputs2.mode == "price" && lineInputs2.equalPrice){
+    //     for (var i = 0; i < interpolatedPricess.length; i++){
+    //         MiscHelpers2.equalizePrices(interpolatedPricess[i], intersectionPricess[0][0].timestamp);
+    //     }
+    // }
+    // var portfolioPrices = MiscHelpers2.getPortfolioDayPrices(intersectionPricess, intersectionPricess.map(_ => 1/intersectionPricess.length), 365);
+    // var rebalanceIndexes: number[] = []
+    // var portfolioPricess = MiscHelpers2.getPortfolioDayPricess(intersectionPricess, intersectionPricess.map(_ => 1/intersectionPricess.length), 365, rebalanceIndexes);
+    // interpolatedPricess.push(portfolioPrices);
+    // portfolioPricess.push([])
+    // seriesLabels.push("portfolio");
+    // var func = function(input: LineChartDataInputs){
+    //     var output: DayVal[][] = []
+    //     for (var i = 0; i < interpolatedPricess.length; i++){
+    //         if (input.mode == "none"){
+    //             output.push([]);
+    //             continue;
+    //         }
+    //         if (input.mode == "price"){
+    //             output.push(interpolatedPricess[i]);
+    //             continue;
+    //         }
+    //         if (input.mode == "portfolioHoldings"){
+    //             output.push(portfolioPricess[i]);
+    //             continue;
+    //         }
+    //         var returns = MiscHelpers2.getReturns(interpolatedPricess[i], input.returnDays);
+    //         var extReturns = MiscHelpers2.getExtrapolatedReturns(returns, input.returnDays, input.extrapolateDays);
+    //         if (input.mode == "returns" && input.smoothDays == 0){
+    //             output.push(extReturns);
+    //             continue;
+    //         }
+    //         var logReturns = MiscHelpers2.getLogReturns(extReturns); 
+    //         if (input.mode == "logReturns" && input.smoothDays == 0){
+    //             output.push(logReturns);
+    //             continue;
+    //         }
+    //         var smoothedLogReturns = MiscHelpers2.smoothData(logReturns, input.smoothDays);
+    //         if (input.mode == "logReturns"){
+    //             output.push(smoothedLogReturns);
+    //             continue;
+    //         }
+    //         //must be smooth returns
+    //         var smoothedReturns = MiscHelpers2.getExponentReturns(smoothedLogReturns)
+    //         output.push(smoothedReturns);
+    //     }
+    //     return output;
+    // }
+    // var data1: DayVal[][] = func(lineInputs1);
+    // var data2: DayVal[][] = func(lineInputs2);
+    // var timestamps = MiscHelpers2.everyNthItem(MiscHelpers2.getUnionTimestamps([...data1, ...data2]), 3);
+    // var start = timestamps.findIndex(z => z >= portfolioPricess[0][0].timestamp);
+    // rebalanceIndexes = rebalanceIndexes.map(z => start + Math.ceil(z / 3) - 1);
+    lineDataContainer.value = getLineDataContainer(tempTickerArray, dayPricess, lineInputs1, lineInputs2, tempTickerArray.map(z => 1))
+    // correlationMatrix.value = MiscHelpers2.getCorrelationMatrix(dayLogAfrss);
+    // averages.value = [];
+    // sds.value = [];
+    // for (var i = 0; i < tempTickerArray.length; i++){
+    //     var avgAfr = MiscHelpers2.getAvgAfr(dayPricess[i]);
+    //     var logAfrSd = getSD(dayLogAfrss[i].map(z => z.logAfr))!;
+    //     averages.value.push((Math.round(avgAfr * 1000) / 10) + "%");
+    //     sds.value.push((Math.round((Math.pow(2, logAfrSd)-1) * 1000) / 10) + "%");
+    // }
 }
+
+watch(lineInputs1, () => {
+    debounce("a", 500, () => updateData());
+    localSettingsService.setValue("lineChartInputs1", lineInputs1)
+});
+watch(lineInputs2, () => {
+    debounce("a", 500, () => updateData());
+    localSettingsService.setValue("lineChartInputs2", lineInputs2)
+});
 
 watch(() => tickerInputs.returnDays, () => {
     debounce("a", 500, () => updateData());
@@ -84,8 +131,18 @@ updateData();
 </script>
 
 <template>
-    <TickerInputComponent />
-    <div style="height: 50vh; position: relative; width: 100%;" >
+    <TickerInputComponent/>
+    <div style="display: flex; width: 100%; margin-top: 8px; gap: 12px;">
+        <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
+            <div style="line-height: 1rem; margin-bottom: 2px;">SOLID LINE</div>
+            <LineChartInputComponent v-model:inputs="lineInputs1"></LineChartInputComponent>
+        </div>
+        <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
+            <div style="line-height: 1rem; margin-bottom: 2px;">DOTTED LINE</div>
+            <LineChartInputComponent v-model:inputs="lineInputs2"></LineChartInputComponent>
+        </div>
+    </div>
+    <div style="height: 80vh; position: relative; width: 100%;" >
         <LineChart :dataContainer="lineDataContainer"/> 
     </div>
     <div style="display: flex; gap: 48px;">

@@ -14,7 +14,7 @@ import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { getSD, getSum } from '../services/helpers';
 //import { getCorrelationMatrix } from '../services/matrix-helper';
 import * as miscHelpers from "../services/misc-helpers2";
-import * as WorkerOperations from '../services/WorkerOperations';
+import {workerOperations} from '../services/WorkerOperations';
 
 
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
@@ -44,27 +44,28 @@ async function generate() {
         segmentCount: segmentCount.value,
         filterExpr: filterExpr.value
     };
-    var weightss = await WorkerOperations.getWeights(request);
+    console.log("workerOperations", workerOperations)
+    var weightss = await workerOperations.getWeights(request);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
-    var intersectionDayPricess = miscHelpers.getIntersectionDayPrices(dayPricess);
+    var interpolatedPricess = dayPricess.map(dayPrices => miscHelpers.interpolateDayPrices(dayPrices));
+    var pricess = interpolatedPricess
+
+    var intersectionDayPricess = miscHelpers.getIntersectionDayPricess(dayPricess);
     var portfolioSummaries: PortfolioSummary[] = [];
 
     for (var weights of weightss) {
-        var portfolioPrices = miscHelpers.getPortfolioDayPrices(intersectionDayPricess, weights);
-        var interpolatedPortfolioPrices = miscHelpers.interpolateDayPrices(portfolioPrices);
-        var dayAfrs = miscHelpers.getAFRs(interpolatedPortfolioPrices, tickerInputs.returnDays);
-        var dayLogAfrs = miscHelpers.getLogAFRs(dayAfrs, tickerInputs.smoothDays);
-        var logAfrs = dayLogAfrs.map(z => z.logAfr)
-        var sum = getSum(logAfrs)
-        var sd = getSD(logAfrs, sum);
+        var portfolioPrices = miscHelpers.getPortfolioDayPrices(intersectionDayPricess, weights, 365);
+        var portfolioReturns = miscHelpers.getReturns(portfolioPrices, 30);
+        var portfolioLogReturns = miscHelpers.getLogReturns(portfolioReturns);
+        var sd = getSD(portfolioLogReturns.map(z => z.val));
         if (sd == null){
             console.warn("sd is null");
             continue;
         }
         portfolioSummaries.push({
             weights: weights,
-            avgLogAfr: sum / logAfrs.length,
+            avgLogAfr: miscHelpers.getAvgAfr(portfolioPrices),
             stdDevLogAfr: sd!
         });
     }

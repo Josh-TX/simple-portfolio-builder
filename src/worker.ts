@@ -1,12 +1,5 @@
 import { WorkerInputWrapper, WorkerOutputWrapper, WorkerOutputData } from "./models/worker-models";
-import { getChartDataHandler } from "./workers/getChartData";
-import { getWeightsHandler }  from "./workers/getWeights";
-import { getLogAfrsHandler }  from "./workers/getLogAfrs";
-var allHandlers = [
-    getChartDataHandler, 
-    getWeightsHandler,
-    getLogAfrsHandler
-];
+import { operationHandlers } from "./services/WorkerHandlers";
 
 self.addEventListener('message', (event) => {
     var workerInput = event.data as WorkerInputWrapper;
@@ -20,6 +13,6 @@ self.addEventListener('message', (event) => {
 });
 
 function handleMessage(input: WorkerInputWrapper): Promise<WorkerOutputData> {
-    var handler = allHandlers.find(z => z.name == input.name);
-    return handler!.handle(input.data);
+    var handler = (<any>operationHandlers)[input.name];
+    return handler(input.data);
 }
