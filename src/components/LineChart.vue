@@ -27,7 +27,7 @@ function _tryRenderChart() {
         return;
     }
     lineDatas =  props.dataContainer.LineDatas.map(z => ({...z}));
-    var timestampStrings = props.dataContainer.timestamps.map(z => new Date(z * 1000).toISOString().split('T')[0]);
+    var dateStrings = props.dataContainer.dayNumbers.map(z => new Date(z * 86400000).toISOString().split('T')[0]);
     var datasets: ChartDataset<"line", number[]>[] = [];
     var colors = [            
         '#ff5271', //red
@@ -108,7 +108,7 @@ function _tryRenderChart() {
     _chart = new Chart("line-chart-canvas", {
         type: 'line',
         data: {
-            labels: timestampStrings,
+            labels: dateStrings,
             datasets: <any>datasets
         },
         options: {

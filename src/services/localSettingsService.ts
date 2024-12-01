@@ -59,7 +59,7 @@ class LocalSettingsService {
     }
 
     setDayPrices(ticker: string, dayPrices: DayVal[]){
-        var arr = dayPrices.map(z => ([z.timestamp, z.val]));
+        var arr = dayPrices.map(z => ([z.dayNumber, z.val]));
         var compressed = LZString.compress(JSON.stringify(arr));
         var cachedData: CachedData = {
             insertTime: Math.round(new Date().getTime() / 1000),
@@ -82,14 +82,14 @@ class LocalSettingsService {
             return null;
         }
         var cachedData: CachedData = JSON.parse(json);
-        var msDiff = (new Date().getTime() / 1000)  - cachedData.insertTime;
+        var msDiff = (new Date().getTime() / 1000) - cachedData.insertTime;
         var hourDiff = msDiff / (1000 * 60 * 60);
         if (hourDiff > MAXCACHEHOURS) {
             return null;
         }
         var arr: [number, number][] = JSON.parse(LZString.decompress(cachedData.compressedData));
         var dayPrices: DayVal[] = arr.map(z => ({
-            timestamp: z[0],
+            dayNumber: z[0],
             val: z[1]
         }));
         return dayPrices;

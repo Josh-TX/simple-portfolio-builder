@@ -41,7 +41,7 @@ async function loadPriceHistoryFromAPI(ticker: string): Promise<DayVal[]> {
     for (var i = 0; i < adjCloses.length && i < timestamps.length; i++){
         output.push({
             val: adjCloses[i],
-            timestamp: timestamps[i]
+            dayNumber: Math.floor(timestamps[i] / 86400)
         });
     }
     return output;
@@ -49,7 +49,7 @@ async function loadPriceHistoryFromAPI(ticker: string): Promise<DayVal[]> {
 
 function getMoneyMarket(): DayVal[]{
     return moneyMarketPrices.map(z => ({
-        timestamp: z[0],
+        dayNumber: z[0],
         val: z[1]
     }));
 }

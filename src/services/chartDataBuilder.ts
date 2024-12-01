@@ -13,11 +13,11 @@ export function getLineDataContainer(
     var interpolatedPricess = dayPricess.map(dayPrices => MiscHelpers2.interpolateDayPrices(dayPrices));
     var rebalanceIndexes1: number[] = [];
     var rebalanceIndexes2: number[] = [];
-    var firstCommonTimestamp =  MiscHelpers2.getFirstCommonTimestamp(dayPricess);
+    var firstCommonDayNumber =  MiscHelpers2.getFirstCommonDayNumber(dayPricess);
     var getDataFunc = function(input: LineChartDataInputs, rebalanceIndexes: number[]){
         var pricess = interpolatedPricess
         if (input.mode == "price" && input.equalPrice){
-            pricess = pricess.map(prices => MiscHelpers2.getEqualizePrices(prices, firstCommonTimestamp));
+            pricess = pricess.map(prices => MiscHelpers2.getEqualizePrices(prices, firstCommonDayNumber));
         }
         var intersectionPricess = MiscHelpers2.getIntersectionDayPricess(pricess);
         if (portfolioWeights){
@@ -57,21 +57,21 @@ export function getLineDataContainer(
     }
     var data1: DayVal[][] = getDataFunc(lineInputs1, rebalanceIndexes1);
     var data2: DayVal[][] = getDataFunc(lineInputs2, rebalanceIndexes2);
-    var timestamps = MiscHelpers2.everyNthItem(MiscHelpers2.getUnionTimestamps([...data1, ...data2]), 3);
-    var start = timestamps.findIndex(z => z >= firstCommonTimestamp);
+    var dayNumbers = MiscHelpers2.everyNthItem(MiscHelpers2.getUnionDayNumbers([...data1, ...data2]), 3);
+    var start = dayNumbers.findIndex(z => z >= firstCommonDayNumber);
     var output: LineDataContainer = {
-        timestamps: timestamps,
+        dayNumbers: dayNumbers,
         seriesLabels: seriesLabels,
         LineDatas: [
             {
-                data: data1.map(data => MiscHelpers2.matchDataToTimestamps(timestamps, data)),
+                data: data1.map(data => MiscHelpers2.matchDataToDayNumbers(dayNumbers, data)),
                 labelCallback: z => z != null ? z.toFixed(2) : "",
                 yAxisTitle: lineInputs1.mode,
                 type: lineInputs1.mode,
                 rebalanceIndexes: rebalanceIndexes1 && lineInputs1.showRebalance ? rebalanceIndexes1.map(z => start + Math.ceil(z / 3) - 1) : null,
             },
             {
-                data: data2.map(data => MiscHelpers2.matchDataToTimestamps(timestamps, data)),
+                data: data2.map(data => MiscHelpers2.matchDataToDayNumbers(dayNumbers, data)),
                 labelCallback: z => z != null ? z.toFixed(2) : "",
                 yAxisTitle: lineInputs2.mode,
                 type: lineInputs2.mode,

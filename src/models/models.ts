@@ -23,7 +23,7 @@ export type DayPrice = {
 }
 
 export type DayVal = {
-    timestamp: number,
+    dayNumber: number,
     val: number
 }
 
@@ -129,7 +129,7 @@ export type LineChartData = {
 }
 
 export type LineDataContainer = {
-    timestamps: number[], 
+    dayNumbers: number[], 
     seriesLabels: string[],
     LineDatas: LineData[],
 }
@@ -144,7 +144,7 @@ export type LineData = {
 //export type LineDataType = "price" | "returns" | "logReturns"
 
 export type GetUnionDaysResult<T> = {
-    timestamps: number[]
+    dayNumbers: number[]
     days: Row<(T | null)>[]
 }
 

@@ -8,12 +8,12 @@ export function interpolateDayPrices(dayPrices: DayVal[]): DayVal[] {
     var output: DayVal[] = [];
     for (var i = 0; i < dayPrices.length - 1; i++) {
         output.push(dayPrices[i]);
-        var dayDiff = Math.round((dayPrices[i + 1].timestamp - dayPrices[i].timestamp) / 86400);
+        var dayDiff = dayPrices[i + 1].dayNumber - dayPrices[i].dayNumber;
         for (var j = 1; j < dayDiff; j++) {
             var interpolated = dayPrices[i].val + (dayPrices[i + 1].val - dayPrices[i].val) * (j / dayDiff);
-            var time = dayPrices[i].timestamp + j * 86400;
+            var dayNumber = dayPrices[i].dayNumber + j;
             output.push({
-                timestamp: time,
+                dayNumber: dayNumber,
                 val: interpolated
             });
         }
@@ -23,66 +23,28 @@ export function interpolateDayPrices(dayPrices: DayVal[]): DayVal[] {
 
 export function getIntersectionDayPricess(dayPricess: DayVal[][]): DayVal[][] {
     if (dayPricess.length === 0) return [];
-    let timestampsSet = new Set(dayPricess[0].map(z => z.timestamp));
+    let dayNumbersSet = new Set(dayPricess[0].map(z => z.dayNumber));
     for (let i = 1; i < dayPricess.length; i++) {
-        timestampsSet = new Set(dayPricess[i].filter(z => timestampsSet.has(z.timestamp)).map(z => z.timestamp));
+        dayNumbersSet = new Set(dayPricess[i].filter(z => dayNumbersSet.has(z.dayNumber)).map(z => z.dayNumber));
     }
     return dayPricess.map(dayPrices => {
-        return dayPrices.filter(z => timestampsSet.has(z.timestamp));
+        return dayPrices.filter(z => dayNumbersSet.has(z.dayNumber));
     })
 }
 
-export function getFirstCommonTimestamp(dayPricess: DayVal[][]): number {
-    var common = dayPricess[0][0].timestamp;
+export function getFirstCommonDayNumber(dayPricess: DayVal[][]): number {
+    var common = dayPricess[0][0].dayNumber;
     for(var i = 1; i < dayPricess.length; i++){
-        common = Math.max(common, dayPricess[i][0].timestamp);
+        common = Math.max(common, dayPricess[i][0].dayNumber);
     }
     return common;
 }
-
-// //assumes the dayPricess are already filterd to intersection, meaning each row has the same set of timestamps
-// export function getPortfolioDayPrices(dayPricess: DayVal[][], weights: number[]): DayVal[]{
-//     if (dayPricess.length === 0) return [];
-
-//     var output: DayVal[] = [];
-//     var sumWeight = getSum(weights);
-//     var rowLength = dayPricess[0].length;
-//     var rebalanceDays: number = 365;
-//     var lastRebalanceIndex = 0;
-
-//     var startMoney = 10;
-//     var shares: number[] = [];
-//     for (var rowIndex = 0; rowIndex < weights.length; rowIndex++){
-//         var moneyForCurrentFund = weights[rowIndex] / sumWeight * startMoney;
-//         shares[rowIndex] = moneyForCurrentFund / dayPricess[rowIndex][0].val 
-//     }
-//     //normally I iterate by row and then by column, but I need to do columnwise operations. 
-//     for (var colIndex = 0; colIndex < rowLength; colIndex++){
-//         var sumMoney = 0;
-//         for (var rowIndex = 0; rowIndex < weights.length; rowIndex++){
-//             var price = dayPricess[rowIndex][colIndex].val * shares[rowIndex];
-//             sumMoney += price;
-//         }
-//         output.push({
-//             val: sumMoney,
-//             timestamp: dayPricess[0][colIndex].timestamp
-//         });
-//         if (lastRebalanceIndex + rebalanceDays == colIndex){
-//             for (var rowIndex = 0; rowIndex < weights.length; rowIndex++){
-//                 var moneyForCurrentFund = weights[rowIndex] / sumWeight * sumMoney;
-//                 shares[rowIndex] = moneyForCurrentFund / dayPricess[rowIndex][colIndex].val 
-//             }
-//             lastRebalanceIndex = colIndex;
-//         }
-//     }
-//     return output;
-// }
 
 export function getReturns(dayPrices: DayVal[], returnDays: number): DayVal[] {
     var output: DayVal[] = [];
     for (var i = returnDays; i < dayPrices.length; i++) {
         output.push({
-            timestamp: dayPrices[i].timestamp,
+            dayNumber: dayPrices[i].dayNumber,
             val: dayPrices[i].val / dayPrices[i - returnDays].val
         });
     }
@@ -90,26 +52,27 @@ export function getReturns(dayPrices: DayVal[], returnDays: number): DayVal[] {
 }
 
 export function getLogReturns(dayReturns: DayVal[]): DayVal[] {
-    return dayReturns.map(z => ({ timestamp: z.timestamp, val: Math.log(z.val) / log2 }))
+    return dayReturns.map(z => ({ dayNumber: z.dayNumber, val: Math.log(z.val) / log2 }))
 }
 
-export function getEqualizePrices(dayPrices: DayVal[], firstCommonTimestamp: number): DayVal[] {
-    var firstCommonDayPrice = dayPrices.find(z => z.timestamp == firstCommonTimestamp)!;
+export function getEqualizePrices(dayPrices: DayVal[], firstCommonDayNumber: number): DayVal[] {
+    console.log("getEqualizePrices", dayPrices)
+    var firstCommonDayPrice = dayPrices.find(z => z.dayNumber == firstCommonDayNumber)!;
     var factor = 10 / firstCommonDayPrice.val;
     return dayPrices.map(z => ({
-        timestamp: z.timestamp,
+        dayNumber: z.dayNumber,
         val: z.val * factor
     }));
 }
 
 
 export function getExponentReturns(dayLogReturns: DayVal[]): DayVal[] {
-    return dayLogReturns.map(z => ({ timestamp: z.timestamp, val: Math.pow(2, z.val) }))
+    return dayLogReturns.map(z => ({ dayNumber: z.dayNumber, val: Math.pow(2, z.val) }))
 }
 
 export function getExtrapolatedReturns(dayReturns: DayVal[], returnDays: number, extrapolateDays: number): DayVal[] {
     var exponent = extrapolateDays / returnDays;
-    return dayReturns.map(z => ({ timestamp: z.timestamp, val: Math.pow(z.val, exponent) }))
+    return dayReturns.map(z => ({ dayNumber: z.dayNumber, val: Math.pow(z.val, exponent) }))
 }
 
 export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
@@ -118,6 +81,7 @@ export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
     var sideDays = Math.floor(smoothDays / 2);
     smoothDays = sideDays * 2 + 1;//in effect, smoothDays is just rounded down to the nearest odd number
     var leftIndex = dayVals.length - sideDays;
+    console.log("dayVals", dayVals)
     for (var i = leftIndex; i < dayVals.length; i++) {
         sum += dayVals[i].val;
     }
@@ -128,7 +92,7 @@ export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
     }
     for (var i = 0; i < dayVals.length - 1; i++) {
         output.push({
-            timestamp: dayVals[i].timestamp,
+            dayNumber: dayVals[i].dayNumber,
             val: sum / smoothDays
         });
         sum -= dayVals[leftIndex].val;
@@ -139,7 +103,7 @@ export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
         sum += dayVals[rightIndex].val;
     }
     output.push({
-        timestamp: dayVals[dayVals.length - 1].val,
+        dayNumber: dayVals[dayVals.length - 1].val,
         val: sum / smoothDays
     });
     return output;
@@ -209,16 +173,16 @@ function getPriceColumns(timestamps: number[], dayLogAFRss: DayLogAFR[][]): Char
     return columns;
 }
 
-export function getUnionTimestamps(dayPricess: DayVal[][]): number[] {
-    const timestampsSet = new Set<number>();
+export function getUnionDayNumbers(dayPricess: DayVal[][]): number[] {
+    const dayNumbersSet = new Set<number>();
     for (var dayPrices of dayPricess) {
         for (const dayPrice of dayPrices) {
-            timestampsSet.add(dayPrice.timestamp);
+            dayNumbersSet.add(dayPrice.dayNumber);
         }
     }
-    var timestamps = Array.from(timestampsSet);
-    timestamps.sort((z1, z2) => z1 - z2);
-    return timestamps;
+    var dayNumbers = Array.from(dayNumbersSet);
+    dayNumbers.sort((z1, z2) => z1 - z2);
+    return dayNumbers;
 }
 
 function getTimestamps(dayPricess: DayLogAFR[][], filterDays: string | null): number[] {
@@ -323,25 +287,25 @@ export function getIntersectionDays<T extends { timestamp: number }>(dayss: Row<
 }
 
 //assumes dayss are already sorted by timestamp
-export function getUnionDays<T extends { timestamp: number }>(dayss: Row<T>[]): GetUnionDaysResult<T> {
-    const timestampsSet = new Set<number>();
+export function getUnionDays<T extends { dayNumber: number }>(dayss: Row<T>[]): GetUnionDaysResult<T> {
+    const dayNumbersSet = new Set<number>();
     for (var days of dayss) {
         for (const day of days) {
-            timestampsSet.add(day.timestamp);
+            dayNumbersSet.add(day.dayNumber);
         }
     }
-    var timestamps = Array.from(timestampsSet);
-    timestamps.sort((z1, z2) => z1 - z2);
+    var dayNumbers = Array.from(dayNumbersSet);
+    dayNumbers.sort((z1, z2) => z1 - z2);
 
     var lastIndexes: number[] = dayss.map(_ => 0);
     var dayRows: Row<(T | null)>[] = dayss.map(_ => []);
-    for (var timestamp of timestamps) {
+    for (var dayNumber of dayNumbers) {
         for (var i = 0; i < dayss.length; i++) {
 
             if (lastIndexes[i] >= dayss[i].length) {
                 dayRows[i].push(null);//timestamp is later than the latest timestamp in dayss[i]
             }
-            else if (dayss[i][lastIndexes[i]].timestamp == timestamp) {
+            else if (dayss[i][lastIndexes[i]].dayNumber == dayNumber) {
                 dayRows[i].push(dayss[i][lastIndexes[i]]);
                 lastIndexes[i]++;
             } else {
@@ -350,27 +314,27 @@ export function getUnionDays<T extends { timestamp: number }>(dayss: Row<T>[]): 
         }
     }
     return {
-        timestamps: timestamps,
+        dayNumbers: dayNumbers,
         days: dayRows
     };
 }
 
 /**
- * Maps each timestamps to the corresponding dayVal value. Uses null if there is no corresponding dayVal.
- * @param timestamps A list of timestamps. Determines the output array length
+ * Maps each dayNumbers to the corresponding dayVal value. Uses null if there is no corresponding dayVal.
+ * @param dayNumbers A list of dayNumbers. Determines the output array length
  * @param dayVals Must already be sorted by timestamp. Could be any type of dayVal list (price, returns, logReturns, etc.)
- * @returns a list a (number | null)[] who's length will match the length of timestamps.length
+ * @returns a list a (number | null)[] who's length will match the length of dayNumbers.length
  */
-export function matchDataToTimestamps(timestamps: number[], dayVals: DayVal[]): (number | null)[] {
+export function matchDataToDayNumbers(dayNumbers: number[], dayVals: DayVal[]): (number | null)[] {
     var lastIndex = 0;
     var output: (number | null)[] = [];
-    for (var timestamp of timestamps) {
-        while (lastIndex < dayVals.length && dayVals[lastIndex].timestamp < timestamp) {
+    for (var dayNumber of dayNumbers) {
+        while (lastIndex < dayVals.length && dayVals[lastIndex].dayNumber < dayNumber) {
             lastIndex++;
         }
         if (lastIndex >= dayVals.length) {
             output.push(null);
-        } else if (dayVals[lastIndex].timestamp == timestamp) {
+        } else if (dayVals[lastIndex].dayNumber == dayNumber) {
             output.push(dayVals[lastIndex].val);
             lastIndex++;
         } else {
@@ -387,8 +351,7 @@ export function matchDataToTimestamps(timestamps: number[], dayVals: DayVal[]): 
  */
 export function getAvgAfr(dayPrices: DayVal[]): number {
     var last = dayPrices[dayPrices.length - 1];
-    var dayDiff = Math.round((last.timestamp - dayPrices[0].timestamp) / 86400);
-
+    var dayDiff = last.dayNumber - dayPrices[0].dayNumber;
     var avgAfr = ((last.val / dayPrices[0].val) ** (365 / dayDiff)) - 1;
     return avgAfr;
 }
@@ -443,7 +406,7 @@ export function getPortfolioDayPrices(dayPricess: DayVal[][], weights: number[],
             lastRebalanceIndex = i;
         }
         output.push({
-            timestamp: dayPricess[0][i].timestamp,
+            dayNumber: dayPricess[0][i].dayNumber,
             val: sumMoney
         });
     }
@@ -492,7 +455,7 @@ export function getPortfolioDayPricess(dayPricess: DayVal[][], weights: number[]
         }
         for (var j = 0; j < shares.length; j++) {
             output[j].push({
-                timestamp: dayPricess[j][i].timestamp,
+                dayNumber: dayPricess[j][i].dayNumber,
                 val: dayPricess[j][i].val * shares[j]
             });
         }
