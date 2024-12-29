@@ -20,6 +20,7 @@ export type WorkerOutputData = any
 
 export interface AllWorkerOperations {
     getWeightss(input: GetWeightsRequest): Promise<number[][]>
+    doWork(input: any): Promise<any>
 }
 
 export type OperationName = keyof AllWorkerOperations

@@ -1,4 +1,4 @@
-import { DayVal, DayAFR, DayLogAFR, ChartData, ChartDataColumn, GetUnionDaysResult, Row } from "../models/models";
+import { DayVal, DayLogAFR, GetUnionDaysResult, Row } from "../models/models";
 import * as MathHelpers from "./math-helpers";
 import { choleskyDecomposition, getCorrelation } from "./matrix-helpers";
 
@@ -115,69 +115,6 @@ export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
     return output;
 }
 
-export function getLogAFRs(dayAFRs: DayAFR[], smoothDays: number): DayLogAFR[] {
-    var log2 = Math.log(2);
-    var logAfrs = dayAFRs.map(z => Math.log(z.afr) / log2);
-    var output: DayLogAFR[] = []
-    var sum = 0;
-    var sideDays = Math.floor(smoothDays / 2);
-    smoothDays = sideDays * 2 + 1;//in effect, smoothDays is just rounded down to the nearest odd number
-    var leftIndex = dayAFRs.length - sideDays;
-    for (var i = leftIndex; i < dayAFRs.length; i++) {
-        sum += logAfrs[i];
-    }
-    leftIndex = leftIndex % logAfrs.length;
-    var rightIndex = sideDays;
-    for (var i = 0; i <= rightIndex; i++) {
-        sum += logAfrs[i];
-    }
-    for (var i = 0; i < dayAFRs.length - 1; i++) {
-        output.push({
-            ...dayAFRs[i],
-            logAfr: sum / smoothDays
-        });
-        sum -= logAfrs[leftIndex];
-        leftIndex++;
-        leftIndex = leftIndex % logAfrs.length;
-        rightIndex++;
-        rightIndex = rightIndex % logAfrs.length;
-        sum += logAfrs[rightIndex];
-    }
-    output.push({
-        ...dayAFRs[dayAFRs.length - 1],
-        logAfr: sum / smoothDays
-    });
-    return output;
-}
-
-
-export function getChartData(tickers: string[], dayLogAFRs: DayLogAFR[][], filterDays: string | null): ChartData {
-    var timestamps = getTimestamps(dayLogAFRs, filterDays);
-    var dataColumns = getPriceColumns(timestamps, dayLogAFRs);
-    return {
-        seriesLabels: tickers,
-        dataColumns: dataColumns,
-        timestamps: timestamps
-    }
-}
-
-function getPriceColumns(timestamps: number[], dayLogAFRss: DayLogAFR[][]): ChartDataColumn[] {
-    var columns: ChartDataColumn[] = [];
-    var timestampToLogAfrMaps = dayLogAFRss.map(dayLogAFRs => {
-        var map: { [key: number]: number } = {};
-        dayLogAFRs.forEach(dayLogAFR => map[dayLogAFR.timestamp] = dayLogAFR.logAfr);
-        return map;
-    });
-    for (var timestamp of timestamps) {
-        var column: ChartDataColumn = [];
-        for (var i = 0; i < dayLogAFRss.length; i++) {
-            var foundLogAfr = timestampToLogAfrMaps[i][timestamp];
-            column.push(foundLogAfr != null ? foundLogAfr : null);
-        }
-        columns.push(column);
-    }
-    return columns;
-}
 
 export function getUnionDayNumbers(dayPricess: DayVal[][]): number[] {
     const dayNumbersSet = new Set<number>();
@@ -189,33 +126,6 @@ export function getUnionDayNumbers(dayPricess: DayVal[][]): number[] {
     var dayNumbers = Array.from(dayNumbersSet);
     dayNumbers.sort((z1, z2) => z1 - z2);
     return dayNumbers;
-}
-
-function getTimestamps(dayPricess: DayLogAFR[][], filterDays: string | null): number[] {
-    const timestampsSet = new Set<number>();
-    for (var dayPrices of dayPricess) {
-        for (const dayPrice of dayPrices) {
-            timestampsSet.add(dayPrice.timestamp);
-        }
-    }
-    var timestamps = Array.from(timestampsSet);
-    if (filterDays && filterDays.length < 5) {
-        if (filterDays == "MWF") {
-            var filterDayInts = [1, 3, 5];
-        }
-        else if (filterDays == "F") {
-            var filterDayInts = [5];
-        } else {
-            throw "unknown filterDays code";
-        }
-        timestamps = timestamps.filter(timestamp => {
-            var daysSinceEpoch = Math.floor(timestamp / 86400);
-            var dayOfWeek = (daysSinceEpoch + 4) % 7;//epoch was on thurday (4);
-            return filterDayInts.includes(dayOfWeek);
-        });
-    }
-    timestamps.sort((z1, z2) => z1 - z2);
-    return timestamps;
 }
 
 export function getCorrelationMatrix(dayLogAFRss: DayLogAFR[][], mustBePositiveSemiDefinite = false): number[][] {
@@ -468,4 +378,49 @@ export function getPortfolioDayPricess(dayPricess: DayVal[][], weights: number[]
     }
     var lastRebalanceIndex = 0;
     return output;
+}
+
+//chatgpt wrote this:
+export function getMaxDrawdown(dayPrices: DayVal[]): DayVal[] {
+    if (dayPrices.length === 0) {
+        return [];
+    }
+
+    let peak = dayPrices[0].val;  // Start with the first day's value as the initial peak
+    let peakDay = dayPrices[0];   // The day corresponding to the peak
+    let maxDrawdown = 0;
+    let drawdownStartDay: DayVal | null = null;
+    let drawdownEndDay: DayVal | null = null;
+
+    // Iterate over the days, starting from the second element
+    for (let i = 1; i < dayPrices.length; i++) {
+        const currentVal = dayPrices[i].val;
+        
+        // Calculate the current drawdown
+        const drawdown = (peak - currentVal) / peak;
+        
+        // Update the maximum drawdown if the current drawdown is larger
+        if (drawdown > maxDrawdown) {
+            maxDrawdown = drawdown;
+            drawdownStartDay = peakDay; // The drawdown starts from the peak
+            drawdownEndDay = dayPrices[i]; // The drawdown ends on the current day
+        }
+
+        // Update the peak if the current value is higher than the previous peak
+        if (currentVal > peak) {
+            peak = currentVal;
+            peakDay = dayPrices[i];  // Update the peak day to the current day
+        }
+    }
+
+    // If there was a drawdown, return the array of days in the drawdown period
+    if (drawdownStartDay && drawdownEndDay) {
+        const startIndex = dayPrices.indexOf(drawdownStartDay);
+        const endIndex = dayPrices.indexOf(drawdownEndDay);
+
+        return dayPrices.slice(startIndex, endIndex + 1); // Include the day of the max drawdown
+    }
+
+    // Return an empty array if no drawdown was found
+    return [];
 }

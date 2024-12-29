@@ -16,7 +16,7 @@ export function getLineDataContainer(
     var firstCommonDayNumber =  PriceHelpers.getFirstCommonDayNumber(dayPricess);
     var getDataFunc = function(input: LineChartDataInputs, rebalanceIndexes: number[]){
         var pricess = interpolatedPricess
-        if (input.mode == "price" && input.equalPrice){
+        if (input.equalPrice && (input.mode == "price" || input.mode == "maxDrawdown")){
             pricess = pricess.map(prices => PriceHelpers.getEqualizePrices(prices, firstCommonDayNumber));
         }
         var intersectionPricess = portfolioWeights ? PriceHelpers.getIntersectionDayPricess(pricess) : [];
@@ -29,6 +29,9 @@ export function getLineDataContainer(
         }
         if (input.mode == "price"){
             return pricess;
+        }
+        if (input.mode == "maxDrawdown"){
+            return pricess.map(prices => PriceHelpers.getMaxDrawdown(prices));
         }
         if (input.mode == "portfolioHoldings"){
             if (!portfolioWeights){
@@ -47,6 +50,11 @@ export function getLineDataContainer(
         var smoothedLogReturnss = logReturnss.map(logReturns => PriceHelpers.smoothData(logReturns, input.smoothDays));
         if (input.mode == "logReturns"){
             return smoothedLogReturnss;
+        }
+        if (input.mode == "logLosses"){
+            return smoothedLogReturnss.map(logReturns => {
+                return logReturns.map(z => ({dayNumber: z.dayNumber, val: z.val > 0 ? 0 : z.val}))
+            });
         }
         if (input.mode == "returns"){
             var smoothedReturnss = smoothedLogReturnss.map(smoothedLogReturns => PriceHelpers.getExponentReturns(smoothedLogReturns));

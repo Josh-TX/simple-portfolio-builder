@@ -2,7 +2,7 @@
 import { Chart, ChartDataset, registerables, ScriptableLineSegmentContext } from 'chart.js';
 import { onMounted, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { LineData, LineDataContainer } from '../models/models';
+import { LineChartMode, LineData, LineDataContainer } from '../models/models';
 
 Chart.register(zoomPlugin);
 Chart.register(...registerables);
@@ -39,10 +39,12 @@ function _tryRenderChart() {
         '#ff81f4', //pink
         '#ffff35', //yellow
         ];
-    if (lineDatas.length > 1 && lineDatas.some(z => z.type == "logReturns") && lineDatas.some(z => z.type == "returns")){
+    var logModes: LineChartMode[] = ["logReturns", "logLosses"];
+    var priceModes: LineChartMode[] = ["price", "portfolioHoldings", "maxDrawdown"];
+    if (lineDatas.length > 1 && lineDatas.some(z => logModes.includes(z.type)) && lineDatas.some(z => z.type == "returns")){
         var lowestVal0 = Math.min(...lineDatas[0].data.flat().filter(x => x !== null) as number[]);
         var lowestVal1 =  Math.min(...lineDatas[1].data.flat().filter(x => x !== null) as number[]);
-        if (lineDatas[0].type == "logReturns"){
+        if (logModes.includes(lineDatas[0].type)){
             //in this case, lineDatas[1] is return. We're gonna subtract the returns by 1 and multiple by a scalar to align it with the logs
             //I want to use only the negative logs & returns to determine the scalar. 
             var returnLowRange =  Math.abs(1 - lowestVal1);
@@ -58,7 +60,7 @@ function _tryRenderChart() {
             lineDatas[1].data = lineDatas[1].data.map(row => row.map(z => z != null ? ((z * scalar) + 1) : z));
         }
     }
-    var yAxis2 = ((lineDatas[0].type == "price" || lineDatas[0].type == "portfolioHoldings") != (lineDatas[1].type == "price" || lineDatas[1].type == "portfolioHoldings")) ? "y2" : "y1";
+    var yAxis2 = (priceModes.includes(lineDatas[0].type) != priceModes.includes(lineDatas[1].type)) ? "y2" : "y1";
     for (var lineData of lineDatas){
         var is2nd = lineData != lineDatas[0];
         for (var i = 0; i < props.dataContainer.seriesLabels.length; i++) {
@@ -130,7 +132,7 @@ function _tryRenderChart() {
                         color: context => {
                             if (lineDatas[0].type == "returns" && context.tick.value == 1){
                                 return '#000000';
-                            } else if (lineDatas[0].type == "logReturns" && context.tick.value == 0){
+                            } else if (logModes.includes(lineDatas[0].type) && context.tick.value == 0){
                                 return '#000000';
                             }
                             return '#1A1A1A'

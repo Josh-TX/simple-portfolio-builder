@@ -6,7 +6,7 @@ export type TickerInputs = {
     filterDays: string,
 }
 
-export type LineChartMode = "price" | "returns" | "logReturns" | "portfolioHoldings" | "none"
+export type LineChartMode = "price" | "returns" | "logReturns" | "portfolioHoldings" | "none" | "maxDrawdown" | "logLosses"
 
 export type LineChartDataInputs = {
     mode: LineChartMode,
