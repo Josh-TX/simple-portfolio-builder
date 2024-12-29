@@ -1,5 +1,4 @@
-import { ChartDataColumn } from "../models/models";
-import { getSum } from "./helpers";
+import * as MathHelpers from "./math-helpers";
 
 
 export function transpose<T>(matrix: T[][]): T[][] {
@@ -91,8 +90,8 @@ export function generateData(
 
 export function getCorrelation(x: number[], y: number[]): number {
     const n = x.length;
-    const meanX = getSum(x) / n;
-    const meanY = getSum(y) / n;
+    const meanX = MathHelpers.getSum(x) / n;
+    const meanY = MathHelpers.getSum(y) / n;
     const covariance = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0) / n;
     const varianceX = x.reduce((sum, xi) => sum + (xi - meanX) ** 2, 0) / n;
     const varianceY = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0) / n;

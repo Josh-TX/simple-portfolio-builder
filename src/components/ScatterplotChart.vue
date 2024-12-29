@@ -2,18 +2,18 @@
 import { Chart, registerables, ScatterDataPoint, ScriptableContext } from 'chart.js';
 import { onMounted, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { PortfolioSummary } from '../models/models';
+import {  ScatterplotDataContainer } from '../models/models';
 
 Chart.register(zoomPlugin);
 Chart.register(...registerables);
 
-var props = defineProps<{ summaries: PortfolioSummary[] | null, highlightedIndexes: number[] }>();
+var props = defineProps<{ dataContainer: ScatterplotDataContainer | null, highlightedIndexes: number[] }>();
 var emits = defineEmits(['point-clicked'])
 var _chart: Chart<"scatter", ScatterDataPoint[], string> | null = null;
 var selectedIndex: number | null = null;
 
-watch(() => props.summaries, async () => {
-    if (props.summaries) {
+watch(() => props.dataContainer, async () => {
+    if (props.dataContainer) {
         _tryRenderChart();
     }
 });
@@ -31,10 +31,10 @@ onMounted(() => {
 function clickHandler(event: Event) {
     var points = _chart!.getElementsAtEventForMode(event, "nearest", { intersect: true }, true);
     if (points.length) {
-        var summary = props.summaries![points[0].index];
+        var point = props.dataContainer!.points[points[0].index];
         if (selectedIndex != points[0].index) {
             selectedIndex = points[0].index;
-            emits('point-clicked', summary);
+            emits('point-clicked', point);
             _chart!.update();
         }
     } else {
@@ -48,7 +48,7 @@ function clickHandler(event: Event) {
 }
 
 function _tryRenderChart() {
-    if (!props.summaries) {
+    if (!props.dataContainer) {
         return;
     }
     if (_chart) {
@@ -62,7 +62,7 @@ function _tryRenderChart() {
             datasets: [
                 {
                     label: "main",
-                    data: props.summaries.map(z => ({ y: z.avgLogAfr, x: z.stdDevLogAfr })),
+                    data: props.dataContainer.points.map(point => ({ y: point.y, x: point.x })),
                     pointRadius: 5,
                     pointHoverRadius: 8,
                     backgroundColor: function (context: ScriptableContext<'line'>) {
@@ -112,11 +112,14 @@ function _tryRenderChart() {
                             enabled: true
                         },
                         mode: 'xy',
-
                     },
                     pan: {
                         enabled: true,
-                        mode: 'x',
+                        mode: 'xy',
+                    },
+                    limits: {
+                        x: {min: 'original', max: 'original'},
+                        y: {min: 'original', max: 'original'}
                     }
                 },
                 filler: {
@@ -133,7 +136,7 @@ function _tryRenderChart() {
                                 var dec = Math.pow(2, context.parsed.y as number) - 1
                                 label += Math.round(dec * 1000) / 10 + "%";
                             }
-                            return [label, props.summaries![context.dataIndex].weights.toString()];
+                            return [label, props.dataContainer!.points[context.dataIndex].weights.toString()];
                             return label + "<br>test";
                         }
                     }

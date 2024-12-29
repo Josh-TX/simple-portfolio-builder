@@ -1,5 +1,5 @@
-import { getSum } from "./helpers";
-import { generateData } from "./matrix-helper";
+import * as MathHelpers from "./math-helpers";
+import { generateData } from "./matrix-helpers";
 import { startTimer, logElapsed } from "./timer";
 import { Portfolio } from "../models/models";
 
@@ -10,7 +10,7 @@ class PortfolioSimulator{
     }
 
     async getSimulations(portfolio: Portfolio, simulationCount: number, years: number): Promise<number[]>{
-        var sumWeight = getSum(portfolio.weights);
+        var sumWeight = MathHelpers.getSum(portfolio.weights);
         var output: number[] = [];
         var log2 = Math.log(2);
         startTimer("getSimulationsTime");

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 
 import { selectedPortfolioService } from '../services/selectedPortfolioService';
-import { GetPortfolioSimulationsRequest, HistogramContainer, HistogramDataset, SimulatedPortfolio } from '../models/models';
+import { HistogramContainer, HistogramDataset, SimulatedPortfolio } from '../models/models';
 import BarChart from './BarChart.vue';
 import { ref, Ref } from 'vue';
-import * as WorkerOperations from '../services/WorkerOperations';
 
 var histogram: Ref<HistogramContainer | null> = ref(null);
 
@@ -45,11 +44,11 @@ async function updateData() {
     var selectedPortfolios = selectedPortfolioService.getPortfolios();
     var simulatedPortfolios: SimulatedPortfolio[] = [];
     for (var selectedPortfolio of selectedPortfolios){
-        var request: GetPortfolioSimulationsRequest = {
-            portfolio: selectedPortfolio,
-            simulationCount: 100,
-            years: 20
-        };
+        // var request: GetPortfolioSimulationsRequest = {
+        //     portfolio: selectedPortfolio,
+        //     simulationCount: 100,
+        //     years: 20
+        // };
         var results: any[] =[];//await WorkerOperations.getWeights(request);
         simulatedPortfolios.push({ ...selectedPortfolio, results: results });
     }

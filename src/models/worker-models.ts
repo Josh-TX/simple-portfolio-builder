@@ -1,4 +1,4 @@
-import { GetWeightsRequest, ChartData, DayLogAFR, GetLogAfrsRequest, DayPrice, DayReturn } from "./models"
+import { GetWeightsRequest, DayPrice, DayReturn } from "./models"
 
 export type WorkerInputWrapper = {
     id: string,

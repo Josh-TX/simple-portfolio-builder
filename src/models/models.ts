@@ -17,6 +17,18 @@ export type LineChartDataInputs = {
     showRebalance: boolean,
 }
 
+export type ScatterplotAxisMode = "return" | "riskAdj-0.5" | "riskAdj-1"  | "logReturnSD" | "logLossRMS" | "maxDrawdown"
+
+export type ScatterplotDataContainer = {
+    points: ScatterplotPoint[]
+}
+
+export type ScatterplotPoint = {
+    weights: number[],
+    x: number,
+    y: number
+}
+
 export type DayPrice = {
     timestamp: number,
     price: number

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Chart, ChartDataset, registerables, ScaleOptionsByType, ScriptableLineSegmentContext } from 'chart.js';
+import { Chart, ChartDataset, registerables, ScriptableLineSegmentContext } from 'chart.js';
 import { onMounted, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { LineData, LineDataContainer } from '../models/models';
@@ -40,8 +40,8 @@ function _tryRenderChart() {
         '#ffff35', //yellow
         ];
     if (lineDatas.length > 1 && lineDatas.some(z => z.type == "logReturns") && lineDatas.some(z => z.type == "returns")){
-        var lowestVal0 = Math.min(...lineDatas[0].data.flat().filter(x => x !== null));
-        var lowestVal1 =  Math.min(...lineDatas[1].data.flat().filter(x => x !== null));
+        var lowestVal0 = Math.min(...lineDatas[0].data.flat().filter(x => x !== null) as number[]);
+        var lowestVal1 =  Math.min(...lineDatas[1].data.flat().filter(x => x !== null) as number[]);
         if (lineDatas[0].type == "logReturns"){
             //in this case, lineDatas[1] is return. We're gonna subtract the returns by 1 and multiple by a scalar to align it with the logs
             //I want to use only the negative logs & returns to determine the scalar. 

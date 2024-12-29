@@ -1,4 +1,4 @@
-import { combinations } from "./helpers";
+import * as MathHelpers from "./math-helpers";
 import { Expression, Parser } from 'expr-eval';
 
 export class PortfolioBuilder{
@@ -19,7 +19,7 @@ export class PortfolioBuilder{
             this._filterExpr = parser.parse(filterExpr);
         }
         this._loggedError = false;
-        var comb = combinations(segmentCount, tickers.length);
+        var comb = MathHelpers.combinations(segmentCount, tickers.length);
         if (comb > 1000000){
             alert("too many combinations");
             return [];

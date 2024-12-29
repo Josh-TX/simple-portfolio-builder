@@ -1,6 +1,6 @@
-import { DayVal, DayReturn, DayAFR, DayLogReturn, DayLogAFR, ChartData, ChartDataColumn, GetUnionDaysResult, Row } from "../models/models";
-import { getSum } from "./helpers";
-import { choleskyDecomposition, getCorrelation } from "./matrix-helper";
+import { DayVal, DayAFR, DayLogAFR, ChartData, ChartDataColumn, GetUnionDaysResult, Row } from "../models/models";
+import * as MathHelpers from "./math-helpers";
+import { choleskyDecomposition, getCorrelation } from "./matrix-helpers";
 
 var log2 = Math.log(2);
 
@@ -21,6 +21,9 @@ export function interpolateDayPrices(dayPrices: DayVal[]): DayVal[] {
     return output;
 }
 
+/**
+ * for each dayPrices, filters it to just DayNumbers shared by all the provided dayPricess
+ */
 export function getIntersectionDayPricess(dayPricess: DayVal[][]): DayVal[][] {
     if (dayPricess.length === 0) return [];
     let dayNumbersSet = new Set(dayPricess[0].map(z => z.dayNumber));
@@ -32,6 +35,9 @@ export function getIntersectionDayPricess(dayPricess: DayVal[][]): DayVal[][] {
     })
 }
 
+/**
+ * Finds the first DayNumber shared by all the provided DayPricess
+ */
 export function getFirstCommonDayNumber(dayPricess: DayVal[][]): number {
     var common = dayPricess[0][0].dayNumber;
     for(var i = 1; i < dayPricess.length; i++){
@@ -352,7 +358,7 @@ export function matchDataToDayNumbers(dayNumbers: number[], dayVals: DayVal[]): 
 export function getAvgAfr(dayPrices: DayVal[]): number {
     var last = dayPrices[dayPrices.length - 1];
     var dayDiff = last.dayNumber - dayPrices[0].dayNumber;
-    var avgAfr = ((last.val / dayPrices[0].val) ** (365 / dayDiff)) - 1;
+    var avgAfr = ((last.val / dayPrices[0].val) ** (365 / dayDiff));
     return avgAfr;
 }
 
@@ -384,7 +390,7 @@ export function getPortfolioDayPrices(dayPricess: DayVal[][], weights: number[],
     if (!dayPricess.length || !dayPricess[0].length) {
         return [];
     }
-    var sumWeight = getSum(weights);
+    var sumWeight = MathHelpers.getSum(weights);
     var startMoney = 10;
     var shares: number[] = [];
     var output: DayVal[] = [];
@@ -431,7 +437,7 @@ export function getPortfolioDayPricess(dayPricess: DayVal[][], weights: number[]
     if (!dayPricess.length || !dayPricess[0].length) {
         return [];
     }
-    var sumWeight = getSum(weights);
+    var sumWeight = MathHelpers.getSum(weights);
     var startMoney = 10;
     var shares: number[] = [];
     var output: DayVal[][] = weights.map(_ => []);

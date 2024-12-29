@@ -1,30 +1,28 @@
 <script setup lang="ts">
 
-import LineChart from './LineChart.vue';
+//import LineChart from './LineChart.vue';
 import TickerInputComponent from './TickerInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
-import { Ref, ref, toRaw, watch } from 'vue'
+import { Ref, ref, shallowRef, ShallowRef, toRaw, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { GetWeightsRequest, Portfolio, PortfolioSummary, ChartData } from '../models/models';
+import { Portfolio, PortfolioSummary, ScatterplotDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
 import ScatterplotChart from './ScatterplotChart.vue';
-import { Parser } from 'expr-eval';
 import { debounce } from '../services/debouncer';
 import { selectedPortfolioService } from '../services/selectedPortfolioService';
-import { getSD, getSum } from '../services/helpers';
-//import { getCorrelationMatrix } from '../services/matrix-helper';
-import * as miscHelpers from "../services/misc-helpers2";
-import {workerOperations} from '../services/WorkerOperations';
+import { getScatterplotDataContainer } from '../services/scatterplotBuilder';
+import { Parser } from 'expr-eval';
 
 
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
 var filterExpr = ref(localSettingsService.getValue("filterExpr") || "");
 var highlightExpr = ref(localSettingsService.getValue("highlightExpr") || "");
+var dataContainer = ref<ScatterplotDataContainer | null>(null);
+
 var selectedSummary: Ref<PortfolioSummary | null> = ref(null);
-var selectedChartData: Ref<ChartData | null> = ref(null);
+//var selectedChartData: Ref<ChartData | null> = ref(null);
 var selectedPortfolio: Ref<Portfolio | null> = ref(null);
-var allSummaries: PortfolioSummary[] | null = null;
-var highlightedIndexes: Ref<number[]> = ref([]);
+var highlightedIndexes: ShallowRef<number[]> = shallowRef([]);
 
 watch(segmentCount, () => {
     localSettingsService.setValue("segmentCount", segmentCount.value);
@@ -39,42 +37,14 @@ watch(highlightExpr, () => {
 async function generate() {
     selectedSummary.value = null;
     var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
-    var request: GetWeightsRequest = {
-        tickers: tickerArray,
-        segmentCount: segmentCount.value,
-        filterExpr: filterExpr.value
-    };
-    console.log("workerOperations", workerOperations)
-    var weightss = await workerOperations.getWeights(request);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
-    var interpolatedPricess = dayPricess.map(dayPrices => miscHelpers.interpolateDayPrices(dayPrices));
-    var pricess = interpolatedPricess
-
-    var intersectionDayPricess = miscHelpers.getIntersectionDayPricess(dayPricess);
-    var portfolioSummaries: PortfolioSummary[] = [];
-
-    for (var weights of weightss) {
-        var portfolioPrices = miscHelpers.getPortfolioDayPrices(intersectionDayPricess, weights, 365);
-        var portfolioReturns = miscHelpers.getReturns(portfolioPrices, 30);
-        var portfolioLogReturns = miscHelpers.getLogReturns(portfolioReturns);
-        var sd = getSD(portfolioLogReturns.map(z => z.val));
-        if (sd == null){
-            console.warn("sd is null");
-            continue;
-        }
-        portfolioSummaries.push({
-            weights: weights,
-            avgLogAfr: miscHelpers.getAvgAfr(portfolioPrices),
-            stdDevLogAfr: sd!
-        });
-    }
-    allSummaries = portfolioSummaries;
+    dataContainer.value =  await getScatterplotDataContainer(tickerArray, dayPricess, segmentCount.value, filterExpr.value, "logReturnSD", "return");
     updateHighlightedIndexes();
 }
 
 function updateHighlightedIndexes() {
-    if (!allSummaries) {
+    if (!dataContainer.value) {
         return;
     }
     highlightedIndexes.value = [];
@@ -84,11 +54,11 @@ function updateHighlightedIndexes() {
         var parsedExpr = new Parser().parse(fixedExprStr);
         var lowercaseTickers = tickerArray.map(z => z.toLowerCase()).map(z => z == "$" ? "moneymarket" : z);
         var loggedError = false;
-        for (var i = 0; i < allSummaries.length; i++) {
-            var summary = allSummaries[i];
+        for (var i = 0; i < dataContainer.value.points.length; i++) {
+            var point = dataContainer.value.points[i];
             var exprData: { [ticker: string]: number } = {};
             for (var j = 0; j < lowercaseTickers.length; j++) {
-                exprData[lowercaseTickers[j]] = summary.weights[j];
+                exprData[lowercaseTickers[j]] = point.weights[j];
             }
             try {
                 var passesFilter = parsedExpr.evaluate(exprData);
@@ -187,7 +157,7 @@ function simulatePortfolio(){
         </div>
         <button @click="generate">Generate</button>
     </div>
-    <ScatterplotChart :summaries="allSummaries" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
+    <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
     </ScatterplotChart>
     <div v-if="selectedSummary && selectedPortfolio">you chose {{ selectedSummary.weights }}
         <div style="display: flex; gap: 16px;">
@@ -200,10 +170,10 @@ function simulatePortfolio(){
             <button @click="simulatePortfolio()">View Simulations</button>
         </div>
         <div style="height: 50vh; position: relative; width: 100%;">
-            <LineChart :chartData="selectedChartData" />
+            <!-- <LineChart :chartData="selectedChartData" /> -->
         </div>
     </div>
-    <div v-else-if="!allSummaries">Click "Generate" to compute possible portfolios</div>
+    <div v-else-if="!dataContainer">Click "Generate" to compute possible portfolios</div>
     <div v-else="!scatterplotInput">No point selected. Click on a point to select it</div>
 </template>
 

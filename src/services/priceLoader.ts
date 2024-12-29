@@ -28,7 +28,8 @@ export async function getPriceHistory(ticker: string): Promise<DayVal[]> {
 
 async function loadPriceHistoryFromAPI(ticker: string): Promise<DayVal[]> {
     //proxy needed because yahoo finance has restrictive CORS headers
-    const proxiedUrl = getProxiedUrl(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=100y&interval=1d`)
+    //also, adding a &a=1 fixes some issues with the proxy (it was adding an = to the yahoo finanace request). 
+    const proxiedUrl = getProxiedUrl(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=100y&interval=1d&a=1`)
     const httpResponse = await fetch(proxiedUrl);
     if (!httpResponse.ok) {
         throw new Error('Network response was not ok');
