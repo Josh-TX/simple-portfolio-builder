@@ -32,3 +32,14 @@ function binomialCoefficient(n: number, k: number) {
 export function combinations(N: number, M: number) {
     return binomialCoefficient(N + M - 1, M - 1);
 }
+
+/**Useful for testing worker-pool performance. Should remove before final release */
+export function doWork(ms: number){
+    var num = 0;
+    for (var i = 0; i < 38000 * ms; i++){
+        num += Math.sin(i) + Math.cos(i);
+    }
+    if (num > 2){
+        return;
+    }
+}

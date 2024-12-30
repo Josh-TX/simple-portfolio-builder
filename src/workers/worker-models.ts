@@ -3,16 +3,16 @@
 import type { GetWeightsRequest } from "../models/models"
 
 export type WorkerInputWrapper = {
-    id: string,
+    id: number,
     name: OperationName,
     data: WorkerInputData
 }
 export type WorkerProgress = {
-    id: string,
+    id: number,
     progress: number
 }
 export type WorkerOutputWrapper = {
-    id: string,
+    id: number,
     data: WorkerOutputData
 }
 export type WorkerInputData = any;

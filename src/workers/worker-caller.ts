@@ -7,5 +7,9 @@ import { workerPool } from "./worker-pool";
 export var workerCaller: AllWorkerOperations = {
     async getWeightss(input: GetWeightsRequest): Promise<number[][]> {
         return workerPool.runOperation("getWeightss", input);
+    },
+
+    async doWork(input: any): Promise<any> {
+        return workerPool.runOperation("doWork", input);
     }
 }

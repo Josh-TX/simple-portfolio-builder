@@ -3,13 +3,16 @@
 import { GetWeightsRequest } from "../models/models";
 import { PortfolioBuilder } from "../services/portfolioBuilder";
 import type { WorkerInputWrapper, WorkerOutputWrapper, WorkerOutputData, AllWorkerOperations } from "./worker-models";
-
+import * as MathHelpers from '../services/math-helpers';
 
 var operations: AllWorkerOperations = {
     async getWeightss(input: GetWeightsRequest): Promise<number[][]> {
         let builder = new PortfolioBuilder();
         var weights = builder.getWeights(input.tickers, input.segmentCount, input.filterExpr);
         return weights;
+    },
+    async doWork(_: any): Promise<any> {
+        MathHelpers.doWork(1);
     }
 }
 
