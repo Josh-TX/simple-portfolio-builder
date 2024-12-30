@@ -1,6 +1,6 @@
 //this code runs in the main thread
 
-import { GetWeightsRequest } from "../models/models";
+import { CalculatePointsRequest, GetWeightsRequest, ScatterplotPoint } from "../models/models";
 import { AllWorkerOperations } from "./worker-models";
 import { workerPool } from "./worker-pool";
 
@@ -9,7 +9,7 @@ export var workerCaller: AllWorkerOperations = {
         return workerPool.runOperation("getWeightss", input);
     },
 
-    async doWork(input: any): Promise<any> {
-        return workerPool.runOperation("doWork", input);
+    async calculatePoints(input: CalculatePointsRequest): Promise<ScatterplotPoint[]> {
+        return workerPool.runOperation("calculatePoints", input);
     }
 }

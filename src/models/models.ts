@@ -54,6 +54,13 @@ export type GetWeightsRequest = {
     filterExpr: string;
 }
 
+export type CalculatePointsRequest = {
+    pricess: DayVal[][];
+    weightss: number[][];
+    axisInputsX: ScatterplotAxisInputs,
+    axisInputsY: ScatterplotAxisInputs
+}
+
 export type GetPortfolioSimulationsRequest = {
     portfolio: Portfolio, 
     simulationCount: number, 

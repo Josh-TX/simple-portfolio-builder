@@ -1,6 +1,6 @@
 //this file should only contain type definitions, since it'll be used both the main thread and each worker
 
-import type { GetWeightsRequest } from "../models/models"
+import type { CalculatePointsRequest, GetWeightsRequest, ScatterplotPoint } from "../models/models"
 
 export type WorkerInputWrapper = {
     id: number,
@@ -20,7 +20,7 @@ export type WorkerOutputData = any
 
 export interface AllWorkerOperations {
     getWeightss(input: GetWeightsRequest): Promise<number[][]>
-    doWork(input: any): Promise<any>
+    calculatePoints(input: CalculatePointsRequest): Promise<ScatterplotPoint[]>
 }
 
 export type OperationName = keyof AllWorkerOperations
