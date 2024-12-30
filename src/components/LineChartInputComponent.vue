@@ -46,6 +46,11 @@ const inputs = defineModel<LineChartDataInputs>("inputs", {required: true})
             <br>
             <input v-model.number="inputs.extrapolateDays">
         </div>
+        <div v-if="inputs.mode == 'maxDrawdown'">
+            <label>peak & trough days maintained</label>
+            <br>
+            <input v-model.number="inputs.drawdownDays">
+        </div>
     </div>
 </template>
 

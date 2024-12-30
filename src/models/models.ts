@@ -15,12 +15,23 @@ export type LineChartDataInputs = {
     equalPrice: boolean,
     extrapolateDays: number,
     showRebalance: boolean,
+    drawdownDays: number,
 }
 
 export type ScatterplotAxisMode = "return" | "riskAdj-0.5" | "riskAdj-1"  | "logReturnSD" | "logLossRMS" | "maxDrawdown"
 
+export type ScatterplotAxisInputs= {
+    mode: ScatterplotAxisMode,
+    returnDays: number,
+    smoothDays: number,
+    drawdownDays: number,
+}
+
 export type ScatterplotDataContainer = {
-    points: ScatterplotPoint[]
+    points: ScatterplotPoint[],
+    seriesLabels: string[],
+    axisInputsX: ScatterplotAxisInputs,
+    axisInputsY: ScatterplotAxisInputs
 }
 
 export type ScatterplotPoint = {
@@ -29,36 +40,9 @@ export type ScatterplotPoint = {
     y: number
 }
 
-export type DayPrice = {
-    timestamp: number,
-    price: number
-}
-
 export type DayVal = {
     dayNumber: number,
     val: number
-}
-
-export type DayReturn = {
-    timestamp: number,
-    return: number
-}
-
-export type DayLogReturn = {
-    timestamp: number,
-    logReturn: number
-}
-
-export type DayAFR = {
-    timestamp: number,
-    price: number,
-    afr: number
-}
-export type DayLogAFR = {
-    timestamp: number,
-    price: number,
-    afr: number,
-    logAfr: number,
 }
 
 export type NullableColumn = (number | null)[];
@@ -68,22 +52,6 @@ export type GetWeightsRequest = {
     tickers: string[];
     segmentCount: number;
     filterExpr: string;
-}
-
-export type GetChartDataRequest = {
-    tickers: string[];
-    dayPricess: DayPrice[][];
-    filterDays: string;
-    returnDays: number;
-    smoothDays: number;
-}
-
-export type GetLogAfrsRequest = {
-    tickers: string[];
-    dayPricess: DayPrice[][];
-    filterDays: string;
-    returnDays: number;
-    smoothDays: number;
 }
 
 export type GetPortfolioSimulationsRequest = {
@@ -124,22 +92,6 @@ export type HistogramDataset = {
     bins: number[]
 }
 
-
-export type ChartData = {
-    timestamps: number[],
-    seriesLabels: string[],
-    dataColumns: ChartDataColumn[]
-}
-
-export type LineChartData = {
-    timestamps: number[], 
-    seriesLabels: string[],
-    data: (number | null)[][],//outer array's length should match seriesLabels.length, innerArray should match timestamps.length
-    labelCallback: (val: number | null) => string,
-    data2: (number | null)[][] | null,
-    labelCallback2: (val: number | null) => string | null
-}
-
 export type LineDataContainer = {
     dayNumbers: number[], 
     seriesLabels: string[],
@@ -153,15 +105,4 @@ export type LineData = {
     rebalanceIndexes: number[] | null,
 }
 
-//export type LineDataType = "price" | "returns" | "logReturns"
-
-export type GetUnionDaysResult<T> = {
-    dayNumbers: number[]
-    days: Row<(T | null)>[]
-}
-
-
-export type ChartDataColumn = Array<number | null>;
-
 export type Row<T> = T[];
-export type Colunn<T> = T[];

@@ -1,4 +1,4 @@
-import { DayVal, LineChartDataInputs } from "../models/models";
+import { DayVal, LineChartDataInputs, ScatterplotAxisInputs } from "../models/models";
 import LZString from 'lz-string';
 
 export type LocalSettings = { 
@@ -12,6 +12,8 @@ export type LocalSettings = {
     highlightExpr?: string | undefined
     lineChartInputs1?: LineChartDataInputs | undefined
     lineChartInputs2?: LineChartDataInputs | undefined
+    scatterplotAxisInputsX?: ScatterplotAxisInputs | undefined
+    scatterplotAxisInputsY?: ScatterplotAxisInputs | undefined
 }
 
 

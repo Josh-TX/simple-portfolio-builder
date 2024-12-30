@@ -14,6 +14,14 @@ export function getSD(nums: number[], sum?: number | undefined): number | undefi
     return Math.sqrt(nums.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / nums.length)
 }
 
+export function getRMS(nums: number[]): number | undefined {
+    if (!nums.length){
+        return undefined;
+    }
+    var sumOfSquares = nums.reduce((a, b) => a + b*b, 0);
+    return Math.sqrt(sumOfSquares / nums.length);
+}
+
 function factorial(n: number) {
     if (n === 0 || n === 1) {
         return 1;

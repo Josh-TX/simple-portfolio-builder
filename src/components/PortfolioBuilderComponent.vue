@@ -3,21 +3,25 @@
 //import LineChart from './LineChart.vue';
 import TickerInputComponent from './TickerInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
-import { Ref, ref, shallowRef, ShallowRef, toRaw, watch } from 'vue'
+import { Reactive, reactive, Ref, ref, shallowRef, ShallowRef, toRaw, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { Portfolio, PortfolioSummary, ScatterplotDataContainer } from '../models/models';
+import { Portfolio, PortfolioSummary, ScatterplotAxisInputs, ScatterplotDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
 import ScatterplotChart from './ScatterplotChart.vue';
 import { debounce } from '../services/debouncer';
 import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { getScatterplotDataContainer } from '../services/scatterplotBuilder';
 import { Parser } from 'expr-eval';
+import ScatterplotInputComponent from './ScatterplotInputComponent.vue';
 
 
 var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
 var filterExpr = ref(localSettingsService.getValue("filterExpr") || "");
 var highlightExpr = ref(localSettingsService.getValue("highlightExpr") || "");
 var dataContainer = ref<ScatterplotDataContainer | null>(null);
+
+var axisInputsX: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsX") || { mode: "return", returnDays: 30, smoothDays: 5, drawdownDays: 1});
+var axisInputsY: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsY") || { mode: "logReturnSD", returnDays: 30, smoothDays: 5, drawdownDays: 1});
 
 var selectedSummary: Ref<PortfolioSummary | null> = ref(null);
 //var selectedChartData: Ref<ChartData | null> = ref(null);
@@ -34,12 +38,19 @@ watch(highlightExpr, () => {
     localSettingsService.setValue("highlightExpr", highlightExpr.value);
     debounce("highlightExpr", 1000, updateHighlightedIndexes)
 });
+watch(axisInputsX, () => {
+    localSettingsService.setValue("scatterplotAxisInputsX", axisInputsX)
+});
+watch(axisInputsY, () => {
+    localSettingsService.setValue("scatterplotAxisInputsY", axisInputsY)
+});
+
 async function generate() {
     selectedSummary.value = null;
     var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
-    dataContainer.value =  await getScatterplotDataContainer(tickerArray, dayPricess, segmentCount.value, filterExpr.value, "logReturnSD", "return");
+    dataContainer.value =  await getScatterplotDataContainer(tickerArray, dayPricess, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY);
     updateHighlightedIndexes();
 }
 
@@ -134,6 +145,16 @@ function simulatePortfolio(){
 
 <template>
     <TickerInputComponent />
+    <div style="display: flex; width: 100%; margin-top: 8px; gap: 12px;">
+        <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
+            <div style="line-height: 1rem; margin-bottom: 2px;">X-axis</div>
+            <ScatterplotInputComponent v-model:inputs="axisInputsX"></ScatterplotInputComponent>
+        </div>
+        <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
+            <div style="line-height: 1rem; margin-bottom: 2px;">Y-axis</div>
+            <ScatterplotInputComponent v-model:inputs="axisInputsY"></ScatterplotInputComponent>
+        </div>
+    </div>
     <div style="display: flex; gap: 16px;">
         <div>
             <label>Segment Count</label>
@@ -157,8 +178,11 @@ function simulatePortfolio(){
         </div>
         <button @click="generate">Generate</button>
     </div>
-    <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
-    </ScatterplotChart>
+    <div style="height: 80vh; position: relative; width: 100%;" >
+        <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
+        </ScatterplotChart>
+    </div>
+
     <div v-if="selectedSummary && selectedPortfolio">you chose {{ selectedSummary.weights }}
         <div style="display: flex; gap: 16px;">
             <div style="flex: 1; padding-right: 8px;" >

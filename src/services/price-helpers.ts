@@ -1,4 +1,4 @@
-import { DayVal, DayLogAFR, GetUnionDaysResult, Row } from "../models/models";
+import { DayVal, Row } from "../models/models";
 import * as MathHelpers from "./math-helpers";
 import { choleskyDecomposition, getCorrelation } from "./matrix-helpers";
 
@@ -62,7 +62,6 @@ export function getLogReturns(dayReturns: DayVal[]): DayVal[] {
 }
 
 export function getEqualizePrices(dayPrices: DayVal[], firstCommonDayNumber: number): DayVal[] {
-    console.log("getEqualizePrices", dayPrices)
     var firstCommonDayPrice = dayPrices.find(z => z.dayNumber == firstCommonDayNumber)!;
     var factor = 10 / firstCommonDayPrice.val;
     return dayPrices.map(z => ({
@@ -87,7 +86,6 @@ export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
     var sideDays = Math.floor(smoothDays / 2);
     smoothDays = sideDays * 2 + 1;//in effect, smoothDays is just rounded down to the nearest odd number
     var leftIndex = dayVals.length - sideDays;
-    console.log("dayVals", dayVals)
     for (var i = leftIndex; i < dayVals.length; i++) {
         sum += dayVals[i].val;
     }
@@ -128,7 +126,8 @@ export function getUnionDayNumbers(dayPricess: DayVal[][]): number[] {
     return dayNumbers;
 }
 
-export function getCorrelationMatrix(dayLogAFRss: DayLogAFR[][], mustBePositiveSemiDefinite = false): number[][] {
+export function getCorrelationMatrix(dayLogAFRss: any[][], mustBePositiveSemiDefinite = false): number[][] {
+    throw "old implementation";
     if (!dayLogAFRss.length) {
         return []
     }
@@ -200,39 +199,6 @@ export function getIntersectionDays<T extends { timestamp: number }>(dayss: Row<
             }
         }
     }
-}
-
-//assumes dayss are already sorted by timestamp
-export function getUnionDays<T extends { dayNumber: number }>(dayss: Row<T>[]): GetUnionDaysResult<T> {
-    const dayNumbersSet = new Set<number>();
-    for (var days of dayss) {
-        for (const day of days) {
-            dayNumbersSet.add(day.dayNumber);
-        }
-    }
-    var dayNumbers = Array.from(dayNumbersSet);
-    dayNumbers.sort((z1, z2) => z1 - z2);
-
-    var lastIndexes: number[] = dayss.map(_ => 0);
-    var dayRows: Row<(T | null)>[] = dayss.map(_ => []);
-    for (var dayNumber of dayNumbers) {
-        for (var i = 0; i < dayss.length; i++) {
-
-            if (lastIndexes[i] >= dayss[i].length) {
-                dayRows[i].push(null);//timestamp is later than the latest timestamp in dayss[i]
-            }
-            else if (dayss[i][lastIndexes[i]].dayNumber == dayNumber) {
-                dayRows[i].push(dayss[i][lastIndexes[i]]);
-                lastIndexes[i]++;
-            } else {
-                dayRows[i].push(null);//timestamp is before than the earliest timestamp in dayss[i]
-            }
-        }
-    }
-    return {
-        dayNumbers: dayNumbers,
-        days: dayRows
-    };
 }
 
 /**
@@ -380,47 +346,55 @@ export function getPortfolioDayPricess(dayPricess: DayVal[][], weights: number[]
     return output;
 }
 
-//chatgpt wrote this:
-export function getMaxDrawdown(dayPrices: DayVal[]): DayVal[] {
-    if (dayPrices.length === 0) {
-        return [];
+export function getMaxDrawdown(dayPrices: DayVal[], daysMaintained: number): { drawdown: number, prices: DayVal[] } | null {
+    var windowMax = -1/0;
+    var windowMin = 1/0
+    var windowStartInd = 0
+    for (var i = 0; i < daysMaintained; i++){
+        windowMax = Math.max(windowMax, dayPrices[i].val)
+        windowMin = Math.min(windowMin, dayPrices[i].val)
     }
 
-    let peak = dayPrices[0].val;  // Start with the first day's value as the initial peak
-    let peakDay = dayPrices[0];   // The day corresponding to the peak
-    let maxDrawdown = 0;
-    let drawdownStartDay: DayVal | null = null;
-    let drawdownEndDay: DayVal | null = null;
+    var peakVal = windowMin;
+    var peakStartInd = windowStartInd;
+    var maxDrawdown = 0;
+    var drawdownStartInd: number | null = null;
+    var drawdownEndInd: number | null = null;
 
-    // Iterate over the days, starting from the second element
-    for (let i = 1; i < dayPrices.length; i++) {
-        const currentVal = dayPrices[i].val;
-        
-        // Calculate the current drawdown
-        const drawdown = (peak - currentVal) / peak;
-        
-        // Update the maximum drawdown if the current drawdown is larger
-        if (drawdown > maxDrawdown) {
+    for (var i = daysMaintained; i < dayPrices.length; i++){
+        var recalcNeeded = (dayPrices[windowStartInd].val == windowMin && dayPrices[i].val > windowMin) 
+            || (dayPrices[windowStartInd].val == windowMax && dayPrices[i].val < windowMax);
+        windowStartInd++;
+        if (recalcNeeded){
+            var windowMax = -1/0;
+            var windowMin = 1/0
+            for (var j = windowStartInd; j <= i; j++){
+                windowMax = Math.max(windowMax, dayPrices[j].val)
+                windowMin = Math.min(windowMin, dayPrices[j].val)
+            }
+        } else {
+            windowMax = Math.max(windowMax, dayPrices[i].val)
+            windowMin = Math.min(windowMin, dayPrices[i].val)
+        }
+
+        var drawdown = (peakVal - windowMax) / peakVal;
+        if (drawdown > maxDrawdown){
             maxDrawdown = drawdown;
-            drawdownStartDay = peakDay; // The drawdown starts from the peak
-            drawdownEndDay = dayPrices[i]; // The drawdown ends on the current day
+            drawdownStartInd = peakStartInd;
+            drawdownEndInd = i;
         }
-
-        // Update the peak if the current value is higher than the previous peak
-        if (currentVal > peak) {
-            peak = currentVal;
-            peakDay = dayPrices[i];  // Update the peak day to the current day
+        if (windowMin >= peakVal) {
+            peakVal = windowMin;
+            peakStartInd = windowStartInd;
         }
     }
 
-    // If there was a drawdown, return the array of days in the drawdown period
-    if (drawdownStartDay && drawdownEndDay) {
-        const startIndex = dayPrices.indexOf(drawdownStartDay);
-        const endIndex = dayPrices.indexOf(drawdownEndDay);
-
-        return dayPrices.slice(startIndex, endIndex + 1); // Include the day of the max drawdown
+    if (drawdownStartInd != null && drawdownEndInd != null) {
+        return {
+            drawdown: maxDrawdown,
+            prices: dayPrices.slice(drawdownStartInd, drawdownEndInd + 1)
+        };
     }
-
-    // Return an empty array if no drawdown was found
-    return [];
+    return null;
 }
+

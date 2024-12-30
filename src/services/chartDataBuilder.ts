@@ -31,7 +31,10 @@ export function getLineDataContainer(
             return pricess;
         }
         if (input.mode == "maxDrawdown"){
-            return pricess.map(prices => PriceHelpers.getMaxDrawdown(prices));
+            return pricess.map(prices => {
+                var maxDropdown = PriceHelpers.getMaxDrawdown(prices, input.drawdownDays);
+                return maxDropdown?.prices || [];
+            });
         }
         if (input.mode == "portfolioHoldings"){
             if (!portfolioWeights){

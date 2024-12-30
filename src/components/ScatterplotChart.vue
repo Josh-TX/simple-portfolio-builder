@@ -28,6 +28,33 @@ onMounted(() => {
     _tryRenderChart();
 });
 
+function getDisplayValue(value: string | number, axis: "x" | "y"): string{
+    var mode = axis == "x" ? props.dataContainer!.axisInputsX.mode : props.dataContainer!.axisInputsY.mode;
+    if (mode == "maxDrawdown"){
+        return Math.round((value as number) * 1000) / 10 + "%";
+    } else {
+        var dec = Math.pow(2, value as number) - 1
+        return Math.round(dec * 1000) / 10 + "%";
+    }
+}
+
+function getTitle(axis: "x" | "y"): string{
+    var inputs = axis == "x" ? props.dataContainer!.axisInputsX : props.dataContainer!.axisInputsY;
+    if (inputs.mode == "maxDrawdown"){
+        return "Max Drawdown (" + inputs.drawdownDays + ")";
+    } 
+    if (inputs.mode == "return"){
+        return `Return`;
+    }
+    if (inputs.mode == "logLossRMS"){
+        return `Log Loss Root Mean Square (${inputs.returnDays}, ${inputs.smoothDays})`;
+    }
+    if (inputs.mode == "logReturnSD"){
+        return `Log Return Standard Deviation (${inputs.returnDays}, ${inputs.smoothDays})`;
+    }
+    throw "unknown mode";
+}
+
 function clickHandler(event: Event) {
     var points = _chart!.getElementsAtEventForMode(event, "nearest", { intersect: true }, true);
     if (points.length) {
@@ -84,21 +111,25 @@ function _tryRenderChart() {
             scales: {
                 x: {
                     ticks: {
-                        // Include a dollar sign in the ticks
                         callback: function (value) {
-                            var dec = Math.pow(2, value as number) - 1
-                            return Math.round(dec * 1000) / 10 + "%";
+                            return getDisplayValue(value, "x");
                         }
-                    }
+                    },
+                    title: {
+                        display: true,
+                        text: getTitle('x')
+                    },
                 },
                 y: {
                     ticks: {
-                        // Include a dollar sign in the ticks
                         callback: function (value) {
-                            var dec = Math.pow(2, value as number) - 1
-                            return Math.round(dec * 1000) / 10 + "%";
+                            return getDisplayValue(value, "y");
                         }
-                    }
+                    },
+                    title: {
+                        display: true,
+                        text: getTitle('y')
+                    },
                 }
             },
             plugins: {
@@ -125,19 +156,27 @@ function _tryRenderChart() {
                 filler: {
                     propagate: false
                 },
+                legend: {
+                    display: false
+                },
                 tooltip: {
                     callbacks: {
                         label: function (context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
+                            var label = "";
+                            var weights = props.dataContainer!.points[context.dataIndex].weights;
+                            var series = props.dataContainer!.seriesLabels;
+                            for (var i = 0; i < props.dataContainer!.seriesLabels.length; i++){
+                                if (weights[i] > 0){
+                                    label += series[i] + ": " + weights[i] + ", ";
+                                }
                             }
-                            if (context.parsed.y !== null) {
-                                var dec = Math.pow(2, context.parsed.y as number) - 1
-                                label += Math.round(dec * 1000) / 10 + "%";
-                            }
-                            return [label, props.dataContainer!.points[context.dataIndex].weights.toString()];
-                            return label + "<br>test";
+                            label = label.substring(0, label.length - 2);
+                            props.dataContainer?.seriesLabels
+                            return [
+                                "X: " + getDisplayValue(context.parsed.x, "x"), 
+                                "Y: " + getDisplayValue(context.parsed.y, "y"),
+                                label
+                            ];
                         }
                     }
                 }

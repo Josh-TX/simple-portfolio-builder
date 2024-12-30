@@ -54,6 +54,10 @@ class WorkerPool {
         }
     }
 
+    getPoolSize(): number{
+        return this._poolSize;
+    }
+
     runOperation(name: OperationName, input: WorkerInputData): Promise<WorkerOutputData>{
         var workerMsg: WorkerInputWrapper = { 
             id: this._idCursor++,
