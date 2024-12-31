@@ -1,6 +1,5 @@
 import { DayVal, ScatterplotPoint, ScatterplotDataContainer, ScatterplotAxisInputs } from "../models/models";
 import * as PriceHelpers from './price-helpers';
-import * as MathHelpers from '../services/math-helpers';
 import { workerCaller } from "../workers/worker-caller";
 import { workerPool } from "../workers/worker-pool";
 

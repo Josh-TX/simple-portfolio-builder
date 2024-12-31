@@ -396,5 +396,18 @@ export function getMaxDrawdown(dayPrices: DayVal[], daysMaintained: number): { d
         };
     }
     return null;
-}
+} 
 
+export function getAdjustPrices(dayPrices: DayVal[], logAFR: number): DayVal[] {
+    var output: DayVal[] = [];
+    var dailyFactor = Math.pow(2 ** logAFR, 1/365);
+    var curFactor = dailyFactor;
+    for (var i = 1; i < dayPrices.length; i++) {
+        output.push({
+            dayNumber: dayPrices[i].dayNumber,
+            val: dayPrices[i].val * curFactor
+        });
+        curFactor *= dailyFactor;
+    }
+    return output;
+}

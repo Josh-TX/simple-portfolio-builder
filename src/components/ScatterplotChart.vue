@@ -10,10 +10,15 @@ Chart.register(...registerables);
 var props = defineProps<{ dataContainer: ScatterplotDataContainer | null, highlightedIndexes: number[] }>();
 var emits = defineEmits(['point-clicked'])
 var _chart: Chart<"scatter", ScatterDataPoint[], string> | null = null;
-var selectedIndex: number | null = null;
+var selectedIndexes = new Set<number>();
+var prevPointCount: number | null;
 
 watch(() => props.dataContainer, async () => {
     if (props.dataContainer) {
+        if (prevPointCount != props.dataContainer.points.length){
+            selectedIndexes = new Set();
+        }
+        prevPointCount = props.dataContainer.points.length
         _tryRenderChart();
     }
 });
@@ -38,35 +43,20 @@ function getDisplayValue(value: string | number, axis: "x" | "y"): string{
     }
 }
 
-function getTitle(axis: "x" | "y"): string{
-    var inputs = axis == "x" ? props.dataContainer!.axisInputsX : props.dataContainer!.axisInputsY;
-    if (inputs.mode == "maxDrawdown"){
-        return "Max Drawdown (" + inputs.drawdownDays + ")";
-    } 
-    if (inputs.mode == "return"){
-        return `Return`;
-    }
-    if (inputs.mode == "logLossRMS"){
-        return `Log Loss Root Mean Square (${inputs.returnDays}, ${inputs.smoothDays})`;
-    }
-    if (inputs.mode == "logReturnSD"){
-        return `Log Return Standard Deviation (${inputs.returnDays}, ${inputs.smoothDays})`;
-    }
-    throw "unknown mode";
-}
-
-function clickHandler(event: Event) {
-    var points = _chart!.getElementsAtEventForMode(event, "nearest", { intersect: true }, true);
-    if (points.length) {
-        var point = props.dataContainer!.points[points[0].index];
-        if (selectedIndex != points[0].index) {
-            selectedIndex = points[0].index;
-            emits('point-clicked', point);
-            _chart!.update();
+function clickHandler(event: MouseEvent) {
+    var clickedPoints = _chart!.getElementsAtEventForMode(event, "nearest", { intersect: true }, true);
+    if (clickedPoints.length) {
+        if (event.ctrlKey){
+            clickedPoints.forEach(z => selectedIndexes.add(z.index));
+        } else {
+            selectedIndexes = new Set(clickedPoints.map(z => z.index));
         }
+        var points = Array.from(selectedIndexes).map(z => props.dataContainer!.points[z])
+        emits('point-clicked', points);
+        _chart!.update();
     } else {
-        if (selectedIndex != null) {
-            selectedIndex = null;
+        if (selectedIndexes.size && !event.ctrlKey) {
+            selectedIndexes = new Set();
             emits('point-clicked', null);
             _chart!.update();
         }
@@ -93,7 +83,7 @@ function _tryRenderChart() {
                     pointRadius: 5,
                     pointHoverRadius: 8,
                     backgroundColor: function (context: ScriptableContext<'line'>) {
-                        if (selectedIndex == context.dataIndex) {
+                        if (selectedIndexes.has(context.dataIndex)) {
                             return "#00bb4f";
                         }
                         if (props.highlightedIndexes.includes(context.dataIndex)) {
@@ -115,20 +105,12 @@ function _tryRenderChart() {
                             return getDisplayValue(value, "x");
                         }
                     },
-                    title: {
-                        display: true,
-                        text: getTitle('x')
-                    },
                 },
                 y: {
                     ticks: {
                         callback: function (value) {
                             return getDisplayValue(value, "y");
                         }
-                    },
-                    title: {
-                        display: true,
-                        text: getTitle('y')
                     },
                 }
             },

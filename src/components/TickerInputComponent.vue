@@ -12,29 +12,6 @@ import { tickerInputs } from "../services/tickerInputService"
             <br>
             <input v-model="tickerInputs.tickers" style="width: 100%">
         </div>
-        <div>
-            <label>N Day Return</label>
-            <br>
-            <input v-model.number="tickerInputs.returnDays">
-        </div>
-        <div>
-            <label>Smooth N Days</label>
-            <br>
-            <input v-model.number="tickerInputs.smoothDays">
-        </div>
-        <div style="padding-top: 24px;"> 
-            <input id="sync" type="checkbox" v-model.boolean="tickerInputs.syncDays">
-            <label for="sync">sync</label>
-        </div>
-        <div>
-            <label>Filter Days</label>
-            <br>
-            <select v-model="tickerInputs.filterDays">
-                <option value="MTWTF">All Weekdays</option>
-                <option value="MWF">Mon, Wed, Fri</option>
-                <option value="F">Just Friday</option>
-            </select>
-        </div>
     </div>
 </template>
 

@@ -39,15 +39,6 @@ watch(lineInputs2, () => {
     localSettingsService.setValue("lineChartInputs2", lineInputs2)
 });
 
-watch(() => tickerInputs.returnDays, () => {
-    debounce("a", 500, () => updateData());
-});
-watch(() => tickerInputs.smoothDays, () => {
-    debounce("a", 500, () => updateData());
-});
-watch(() => tickerInputs.filterDays, () => {
-    debounce("a", 500, () => updateData());
-});
 watch(() => tickerInputs.tickers, () => {
     debounce("a", 1000, () => updateData());
 });

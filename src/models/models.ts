@@ -1,9 +1,5 @@
 export type TickerInputs = {
-    returnDays: number,
-    smoothDays: number,
-    syncDays: boolean,
     tickers: string,
-    filterDays: string,
 }
 
 export type LineChartMode = "price" | "returns" | "logReturns" | "portfolioHoldings" | "none" | "maxDrawdown" | "logLosses"
@@ -18,13 +14,14 @@ export type LineChartDataInputs = {
     drawdownDays: number,
 }
 
-export type ScatterplotAxisMode = "return" | "riskAdj-0.5" | "riskAdj-1"  | "logReturnSD" | "logLossRMS" | "maxDrawdown"
+export type ScatterplotAxisMode = "return" | "riskAdjReturn" | "logReturnSD" | "logLossRMS" | "maxDrawdown"
 
 export type ScatterplotAxisInputs= {
     mode: ScatterplotAxisMode,
     returnDays: number,
     smoothDays: number,
     drawdownDays: number,
+    riskAdjSD: number
 }
 
 export type ScatterplotDataContainer = {

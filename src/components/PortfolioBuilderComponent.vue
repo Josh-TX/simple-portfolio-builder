@@ -3,13 +3,12 @@
 //import LineChart from './LineChart.vue';
 import TickerInputComponent from './TickerInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
-import { Reactive, reactive, Ref, ref, shallowRef, ShallowRef, toRaw, watch } from 'vue'
+import { Reactive, reactive, ref, shallowRef, ShallowRef, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { Portfolio, PortfolioSummary, ScatterplotAxisInputs, ScatterplotDataContainer } from '../models/models';
+import { PortfolioSummary, ScatterplotAxisInputs, ScatterplotDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
 import ScatterplotChart from './ScatterplotChart.vue';
 import { debounce } from '../services/debouncer';
-import { selectedPortfolioService } from '../services/selectedPortfolioService';
 import { getScatterplotDataContainer } from '../services/scatterplotBuilder';
 import { Parser } from 'expr-eval';
 import ScatterplotInputComponent from './ScatterplotInputComponent.vue';
@@ -20,12 +19,12 @@ var filterExpr = ref(localSettingsService.getValue("filterExpr") || "");
 var highlightExpr = ref(localSettingsService.getValue("highlightExpr") || "");
 var dataContainer = ref<ScatterplotDataContainer | null>(null);
 
-var axisInputsX: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsX") || { mode: "return", returnDays: 30, smoothDays: 5, drawdownDays: 1});
-var axisInputsY: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsY") || { mode: "logReturnSD", returnDays: 30, smoothDays: 5, drawdownDays: 1});
+var axisInputsX: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsX") || { mode: "return", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
+var axisInputsY: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsY") || { mode: "logReturnSD", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
 
-var selectedSummary: Ref<PortfolioSummary | null> = ref(null);
+//var selectedSummary: Ref<PortfolioSummary | null> = ref(null);
 //var selectedChartData: Ref<ChartData | null> = ref(null);
-var selectedPortfolio: Ref<Portfolio | null> = ref(null);
+//var selectedPortfolio: Ref<Portfolio | null> = ref(null);
 var highlightedIndexes: ShallowRef<number[]> = shallowRef([]);
 
 watch(segmentCount, () => {
@@ -46,13 +45,13 @@ watch(axisInputsY, () => {
 });
 
 async function generate() {
-    selectedSummary.value = null;
     var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
     dataContainer.value =  await getScatterplotDataContainer(tickerArray, dayPricess, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY);
     updateHighlightedIndexes();
 }
+
 
 function updateHighlightedIndexes() {
     if (!dataContainer.value) {
@@ -86,6 +85,30 @@ function updateHighlightedIndexes() {
     }
 }
 
+function getTitle(axis: "x" | "y"): string{
+    var inputs = axis == "x" ? axisInputsX : axisInputsY;
+    if (inputs.mode == "maxDrawdown"){
+        return "Max Drawdown (" + inputs.drawdownDays + ")";
+    } 
+    if (inputs.mode == "return"){
+        return `Return`;
+    }
+    if (inputs.mode == "logLossRMS"){
+        return `Log Loss Root Mean Square (${inputs.returnDays}, ${inputs.smoothDays})`;
+    }
+    if (inputs.mode == "logReturnSD"){
+        return `Log Return Standard Deviation (${inputs.returnDays}, ${inputs.smoothDays})`;
+    }
+    if (inputs.mode == "riskAdjReturn"){
+        return `Risk-Adj Return(${inputs.returnDays}, ${inputs.smoothDays}, ${inputs.riskAdjSD})`;
+    }
+    throw "unknown mode";
+}
+
+function isReturn(inputs: ScatterplotAxisInputs): boolean{
+    return inputs.mode == "return" || inputs.mode == "riskAdjReturn"
+}
+
 // function getPorfolioName(tickers: string[], weights: number[]){
 //     var name = "";
 //     var totalWeight = getSum(weights);
@@ -98,11 +121,11 @@ function updateHighlightedIndexes() {
 // }
 
 async function pointClicked(summary: PortfolioSummary | null) {
-    selectedSummary.value = summary;
+    //selectedSummary.value = summary;
     if (!summary) {
         return;
     }
-    alert("not implemented")
+    //alert("not implemented")
     // var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     // var promises = tickerArray.map(z => getPriceHistory(z));
     // var dayPricess = await Promise.all(promises);
@@ -137,9 +160,9 @@ async function pointClicked(summary: PortfolioSummary | null) {
     // selectedPortfolio.value = portfolio;
 }
 
-function simulatePortfolio(){
-    selectedPortfolioService.addPortfolio(toRaw(selectedPortfolio.value!));
-}
+// function simulatePortfolio(){
+//     selectedPortfolioService.addPortfolio(toRaw(selectedPortfolio.value!));
+// }
 
 </script>
 
@@ -178,12 +201,29 @@ function simulatePortfolio(){
         </div>
         <button @click="generate">Generate</button>
     </div>
-    <div style="height: 80vh; position: relative; width: 100%;" >
-        <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
-        </ScatterplotChart>
+    <div class="scatterplot-container">
+        <div class="y-label-container">
+            <span class="abs-label y-label-top good" v-if="isReturn(axisInputsY)">better</span>
+            <span class="abs-label y-label-top bad" v-else>worse</span>
+            <span> {{ getTitle('y') }}</span>
+            <span class="abs-label y-label-bottom good" v-if="!isReturn(axisInputsY)">better</span>
+            <span class="abs-label y-label-bottom bad" v-else>worse</span>
+        </div>
+        <div style="min-height: 400px; max-height: 70vh">
+            <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
+            </ScatterplotChart>
+        </div>
+        <div></div>
+        <div class="x-label-container">
+            <span class="abs-label x-label-left good" v-if="!isReturn(axisInputsX)">better</span>
+            <span class="abs-label x-label-left bad" v-else>worse</span>
+            <span> {{ getTitle('x') }}</span>
+            <span class="abs-label x-label-right good" v-if="isReturn(axisInputsX)">better</span>
+            <span class="abs-label x-label-right bad" v-else>worse</span>
+        </div>
     </div>
 
-    <div v-if="selectedSummary && selectedPortfolio">you chose {{ selectedSummary.weights }}
+    <!-- <div v-if="selectedSummary && selectedPortfolio">you chose {{ selectedSummary.weights }}
         <div style="display: flex; gap: 16px;">
             <div style="flex: 1; padding-right: 8px;" >
                 <label>Selected Portfolio Name</label>
@@ -194,11 +234,61 @@ function simulatePortfolio(){
             <button @click="simulatePortfolio()">View Simulations</button>
         </div>
         <div style="height: 50vh; position: relative; width: 100%;">
-            <!-- <LineChart :chartData="selectedChartData" /> -->
+            <LineChart :chartData="selectedChartData" />
         </div>
-    </div>
-    <div v-else-if="!dataContainer">Click "Generate" to compute possible portfolios</div>
-    <div v-else="!scatterplotInput">No point selected. Click on a point to select it</div>
+    </div> -->
+    <div v-if="!dataContainer">Click "Generate" to compute possible portfolios</div>
+    <!-- <div v-else="!scatterplotInput">No point selected. Click on a point to select it</div> -->
 </template>
 
-<style scoped></style>
+<style scoped>
+.scatterplot-container{
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 10px;
+}
+
+.abs-label {
+  position: absolute;
+  z-index: -1;
+  opacity: 0.7;
+}
+.good{
+    color: green;
+}
+.bad{
+    color: red;
+}
+
+.y-label-container {
+    position: relative;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg); 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px 0 50px 0;
+}
+.y-label-top {
+    bottom: 0;
+}
+.y-label-bottom {
+    top: 0;
+}
+
+.x-label-container {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    margin: 0 10px 0 50px;
+}
+.x-label-left {
+    left: 0;
+}
+.x-label-right {
+    right: 0;
+}
+</style>
