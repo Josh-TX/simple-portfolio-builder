@@ -18,6 +18,8 @@ var segmentCount = ref(localSettingsService.getValue("segmentCount") || 5);
 var filterExpr = ref(localSettingsService.getValue("filterExpr") || "");
 var highlightExpr = ref(localSettingsService.getValue("highlightExpr") || "");
 var dataContainer = ref<ScatterplotDataContainer | null>(null);
+var newestTicker = ref<string | null>(null);
+var newestTickerStart = ref<string | null>(null);
 
 var axisInputsX: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsX") || { mode: "return", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
 var axisInputsY: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsY") || { mode: "logReturnSD", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
@@ -48,6 +50,9 @@ async function generate() {
     var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     var promises = tickerArray.map(z => getPriceHistory(z));
     var dayPricess = await Promise.all(promises);
+    var newestIndex = dayPricess.reduce((index, dayPrices, i) => dayPrices[0].dayNumber > dayPricess[index][0].dayNumber ? i : index, 0);
+    newestTicker.value = tickerArray[newestIndex];
+    newestTickerStart.value = new Date(dayPricess[newestIndex][0].dayNumber * 86400000).toISOString().split('T')[0];
     dataContainer.value =  await getScatterplotDataContainer(tickerArray, dayPricess, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY);
     updateHighlightedIndexes();
 }
@@ -186,6 +191,7 @@ async function pointClicked(summary: PortfolioSummary | null) {
                 <option :value="5">5 (20% per segment)</option>
                 <option :value="8">8 (12.5% per segment)</option>
                 <option :value="10">10 (10% per segment)</option>
+                <option :value="12">12 (8.33% per segment)</option>
                 <option :value="20">20 (5% per segment)</option>
             </select>
         </div>
@@ -194,7 +200,7 @@ async function pointClicked(summary: PortfolioSummary | null) {
             <br>
             <input v-model="filterExpr" style="width: 100%">
         </div>
-        <div style="flex: 1; padding-right: 8px;">
+        <div style="flex: 0.5; padding-right: 8px;">
             <label>Highlight Portfolios by Expression</label>
             <br>
             <input v-model="highlightExpr" style="width: 100%">
@@ -209,7 +215,9 @@ async function pointClicked(summary: PortfolioSummary | null) {
             <span class="abs-label y-label-bottom good" v-if="!isReturn(axisInputsY)">better</span>
             <span class="abs-label y-label-bottom bad" v-else>worse</span>
         </div>
-        <div style="min-height: 400px; max-height: 70vh">
+        <div style="min-height: 400px; max-height: 70vh; position: relative;">
+            <div v-if="newestTicker" class="newest-ticker">{{ newestTicker }} began {{ newestTickerStart }}</div>
+            <h2 v-if="!dataContainer" class="not-generated-msg">Click "Generate" to compute possible portfolios</h2>
             <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
             </ScatterplotChart>
         </div>
@@ -237,7 +245,6 @@ async function pointClicked(summary: PortfolioSummary | null) {
             <LineChart :chartData="selectedChartData" />
         </div>
     </div> -->
-    <div v-if="!dataContainer">Click "Generate" to compute possible portfolios</div>
     <!-- <div v-else="!scatterplotInput">No point selected. Click on a point to select it</div> -->
 </template>
 
@@ -290,5 +297,21 @@ async function pointClicked(summary: PortfolioSummary | null) {
 }
 .x-label-right {
     right: 0;
+}
+
+.not-generated-msg{
+    position: absolute;
+    top: 20%;
+    text-align: center;
+    left: 0;
+    right: 0;
+    opacity: 0.7;
+}
+
+.newest-ticker {
+    position: absolute;
+    top: 0;
+    right: 0;
+    opacity: 0.6;
 }
 </style>

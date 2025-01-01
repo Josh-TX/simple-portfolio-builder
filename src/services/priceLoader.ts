@@ -1,5 +1,5 @@
 import { DayVal } from "../models/models";
-import { localSettingsService } from "./localSettingsService";
+import { pricesDB } from "./db";
 import { moneyMarketPrices } from "./moneyMarketPrices";
 
 var pricesMap: {[ticker: string]: DayVal[]} = {}
@@ -11,7 +11,8 @@ export async function getPriceHistory(ticker: string): Promise<DayVal[]> {
     if (ticker == "$"){
         return getMoneyMarket();
     }
-    var cachedPrices =  localSettingsService.getDayPrices(ticker);
+    var cachedPrices = await pricesDB.tryGet(ticker);
+    console.log("cachedPrices", cachedPrices)
     if (cachedPrices){
         return cachedPrices;
     }
@@ -19,7 +20,7 @@ export async function getPriceHistory(ticker: string): Promise<DayVal[]> {
     dayPrices = dayPrices.filter(z => z.val != null);
     dayPrices.forEach(dayPrice => dayPrice.val = Number.parseFloat(dayPrice.val.toPrecision(9)))
     if (dayPrices.length > 0){
-        localSettingsService.setDayPrices(ticker, dayPrices);
+        pricesDB.set(ticker, dayPrices);
     }
     pricesMap[ticker] = dayPrices;
     return dayPrices;
