@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { Chart, ChartDataset, registerables } from 'chart.js';
+import { Chart, ChartDataset, registerables, ScriptableLineSegmentContext } from 'chart.js';
 import { onMounted, watch } from 'vue'
-import { ChartData } from '../services/chartDataBuilder';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { LineChartMode, LineData, LineDataContainer } from '../models/models';
 
 Chart.register(zoomPlugin);
 Chart.register(...registerables);
 
-var props = defineProps<{ chartData: ChartData | null }>();
+var props = defineProps<{ dataContainer: LineDataContainer | null }>();
+var lineDatas: LineData[] = [];
 var _chart: Chart<"line", number[], string> | null = null;
 
-watch(() => props.chartData, async () => {
-    if (props.chartData) {
+watch(() => props.dataContainer, async () => {
+    if (props.dataContainer) {
         _tryRenderChart();
     }
 });
@@ -20,20 +21,88 @@ onMounted(() => {
     _tryRenderChart();
 });
 
+
 function _tryRenderChart() {
-    if (!props.chartData) {
+    if (!props.dataContainer) {
         return;
     }
-    var labels = props.chartData.timestamps.map(z => new Date(z * 1000).toISOString().split('T')[0]);
-    var datasets: ChartDataset<any, number[]>[] = [];
-    for (var i = 0; i < props.chartData.seriesLabels.length; i++) {
-        datasets.push({
-            label: props.chartData.seriesLabels[i],
-            data: props.chartData.dataColumns.map(column => column[i]),
-            borderWidth: 1,
-            pointRadius: 0,
-        })
-
+    lineDatas =  props.dataContainer.LineDatas.map(z => ({...z}));
+    var dateStrings = props.dataContainer.dayNumbers.map(z => new Date(z * 86400000).toISOString().split('T')[0]);
+    var datasets: ChartDataset<"line", number[]>[] = [];
+    var colors = [            
+        '#ff5271', //red
+        '#51a3ff', //blue
+        '#50e991', //green
+        '#9269ff', //purple
+        '#ff9b3e', //orange
+        '#0ac3c3', //turquoise
+        '#ff81f4', //pink
+        '#ffff35', //yellow
+        ];
+    var logModes: LineChartMode[] = ["logReturns", "logLosses"];
+    var priceModes: LineChartMode[] = ["price", "portfolioHoldings", "maxDrawdown"];
+    if (lineDatas.length > 1 && lineDatas.some(z => logModes.includes(z.type)) && lineDatas.some(z => z.type == "returns")){
+        var lowestVal0 = Math.min(...lineDatas[0].data.flat().filter(x => x !== null) as number[]);
+        var lowestVal1 =  Math.min(...lineDatas[1].data.flat().filter(x => x !== null) as number[]);
+        if (logModes.includes(lineDatas[0].type)){
+            //in this case, lineDatas[1] is return. We're gonna subtract the returns by 1 and multiple by a scalar to align it with the logs
+            //I want to use only the negative logs & returns to determine the scalar. 
+            var returnLowRange =  Math.abs(1 - lowestVal1);
+            var logLowRange =  Math.abs(0 - lowestVal0);
+            var scalar = logLowRange / returnLowRange;
+            lineDatas[1].data = lineDatas[1].data.map(row => row.map(z => z != null ? (z - 1) * scalar : z));
+        } else {
+            //in this case, lineDatas[1] is log. We're gonna add 1 to the returns and multiple by a scalar to align it with the returns
+            //I want to use only the negative logs & returns to determine the scalar. 
+            var returnLowRange =  Math.abs(1 - lowestVal0);
+            var logLowRange =  Math.abs(0 - lowestVal1);
+            var scalar = returnLowRange / logLowRange;
+            lineDatas[1].data = lineDatas[1].data.map(row => row.map(z => z != null ? ((z * scalar) + 1) : z));
+        }
+    }
+    var yAxis2 = (priceModes.includes(lineDatas[0].type) != priceModes.includes(lineDatas[1].type)) ? "y2" : "y1";
+    for (var lineData of lineDatas){
+        var is2nd = lineData != lineDatas[0];
+        for (var i = 0; i < props.dataContainer.seriesLabels.length; i++) {
+            var label = props.dataContainer.seriesLabels[i];
+            var color = label == "portfolio" ? "#FFFFFF" : colors[i % colors.length]
+            var segmentCallback: any = undefined;
+            if (lineData.rebalanceIndexes){
+                var rebalanceIndexSet = new Set(lineData.rebalanceIndexes);
+                segmentCallback = {
+                    borderColor: (ctx: ScriptableLineSegmentContext) => rebalanceIndexSet.has(ctx.p0DataIndex ) ? "white" : undefined
+                };
+            }
+            datasets.push({
+                label: label,
+                data: <number[]>lineData.data[i],
+                borderWidth: 2,
+                pointRadius: 0,
+                stack: lineData.type == "portfolioHoldings" ? "p" : i.toString(),
+                yAxisID: !is2nd ? 'y1' : yAxis2,
+                borderColor: color,
+                backgroundColor: color + "11",
+                fill: lineData.type == "portfolioHoldings" ? (i == 0 ? 'origin' : '-1') : false,
+                borderDash: is2nd ? [1,2] : undefined,
+                segment: segmentCallback
+            })
+        }
+    }
+    var secondScale: any = {};
+    if (yAxis2 == "y2"){
+        secondScale.y2 = {
+            ticks: {},
+            display: true,
+            stacked: props.dataContainer.LineDatas[1].type == "portfolioHoldings" ? true : false,
+            position: 'right',
+            title: {
+                display: true,
+                text: props.dataContainer.LineDatas[1].yAxisTitle + " (dotted line)"
+            },
+            grid: {
+                display: false
+            }
+        }
     }
     if (_chart) {
         _chart.destroy();
@@ -41,21 +110,36 @@ function _tryRenderChart() {
     _chart = new Chart("line-chart-canvas", {
         type: 'line',
         data: {
-            labels: labels,
-            datasets: datasets
+            labels: dateStrings,
+            datasets: <any>datasets
         },
         options: {
+            animation: {
+                duration: 0
+            },
             maintainAspectRatio: false,
             scales: {
-                y: {
-                    ticks: {
-                        // Include a dollar sign in the ticks
-                        callback: function(value) {
-                            var dec = Math.pow(2, value as number) - 1
-                            return Math.round(dec * 1000) / 10 + "%";
-                        }
+                y1: {
+                    ticks: {},
+                    display: true,
+                    stacked: (props.dataContainer.LineDatas[0].type == "portfolioHoldings" || props.dataContainer.LineDatas[1].type == "portfolioHoldings") ? true : false,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: props.dataContainer.LineDatas[0].yAxisTitle + (yAxis2 == "y2" ? " (solid line)" : "")
+                    },
+                    grid: {
+                        color: context => {
+                            if (lineDatas[0].type == "returns" && context.tick.value == 1){
+                                return '#000000';
+                            } else if (logModes.includes(lineDatas[0].type) && context.tick.value == 0){
+                                return '#000000';
+                            }
+                            return '#1A1A1A'
+                        },
                     }
-                }
+                },
+                ...secondScale
             },
             interaction: {
                 mode: 'index',
@@ -78,21 +162,58 @@ function _tryRenderChart() {
                         mode: 'x',
                     }
                 },
-                filler: {
-                    propagate: false
+                // filler: {
+                //     propagate: false
+                // },
+                legend: {
+                    labels: {
+                        filter: legendItem => legendItem.datasetIndex! < props.dataContainer!.seriesLabels.length
+                    },
+                    onClick: (_, legendItem, legend) => {
+                        var chart = legend.chart;
+                        if (chart.isDatasetVisible(legendItem.datasetIndex!)) {
+                            console.log("hiding ", legendItem.datasetIndex)
+                            chart.hide(legendItem.datasetIndex!);
+                            if (props.dataContainer!.LineDatas.length > 1){
+                                console.log("and hiding ", legendItem.datasetIndex! + props.dataContainer!.seriesLabels.length)
+                                chart.hide(legendItem.datasetIndex! + props.dataContainer!.seriesLabels.length);
+                            }
+                            console.log("datasets", chart.data.datasets);
+                            legendItem.hidden = true;
+                        } else {
+                            chart.show(legendItem.datasetIndex!);
+                            if (props.dataContainer!.LineDatas.length > 1){
+                                chart.show(legendItem.datasetIndex! + props.dataContainer!.seriesLabels.length);
+                            }
+                            legendItem.hidden = false;
+                        }
+                    }
                 },
                 tooltip: {
+                    filter: tooltipItem => {
+                        if (tooltipItem.datasetIndex < props.dataContainer!.seriesLabels.length){
+                            return true;
+                        }
+                        var datasetIndex = tooltipItem.datasetIndex - props.dataContainer!.seriesLabels.length
+                        if (props.dataContainer!.LineDatas[0].data[datasetIndex][tooltipItem.dataIndex] == null 
+                            && props.dataContainer!.LineDatas[1].data[datasetIndex][tooltipItem.dataIndex] != null){
+                            return true;
+                        }
+                        return false;
+                    },
                     callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
+                        label: tooltipItem => {
+                            var datasetIndex = tooltipItem.datasetIndex;
+                            if (tooltipItem.datasetIndex >= props.dataContainer!.seriesLabels.length){
+                                datasetIndex = tooltipItem.datasetIndex - props.dataContainer!.seriesLabels.length;
                             }
-                            if (context.parsed.y !== null) {
-                                var dec = Math.pow(2, context.parsed.y as number) - 1
-                                label += Math.round(dec * 1000) / 10 + "%";
+                            var label = props.dataContainer!.seriesLabels[datasetIndex];
+                            if (props.dataContainer!.LineDatas.length > 1){
+                                var data2 =  props.dataContainer!.LineDatas[1].data[datasetIndex][tooltipItem.dataIndex];
+                                return label + ": " + props.dataContainer!.LineDatas[0].labelCallback(tooltipItem.parsed.y) 
+                                    + "  |  " + props.dataContainer!.LineDatas[1].labelCallback(data2)
                             }
-                            return label;
+                            return label + ": " + props.dataContainer!.LineDatas[0]!.labelCallback(tooltipItem.parsed.y);
                         }
                     }
                 }

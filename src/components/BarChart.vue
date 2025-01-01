@@ -30,10 +30,11 @@ function _tryRenderChart() {
     if (_chart) {
         _chart.destroy();
     }
-    var datasets = props.histogram.datasets.map(z => ({
+    var backgrounds = ["red", "blue", "green"];
+    var datasets = props.histogram.datasets.map((z, i) => ({
         label: "histogram",
         data: z.bins,
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        backgroundColor: backgrounds[i % backgrounds.length],
         borderColor: 'rgba(75, 192, 192, 1)',
         borderWidth: 1
     }))

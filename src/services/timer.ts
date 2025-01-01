@@ -1,10 +1,10 @@
-var timers: { [key: string]: Date} = {};
+var timers: { [key: string]: number} = {};
 
 export function startTimer(key: string): void {
-    timers[key] = new Date();
+    timers[key] = performance.now();
 }
 
 export function logElapsed(key: string){
-    var ms = new Date().getTime() - timers[key].getTime();
+    var ms = performance.now() - timers[key];
     console.log("elasped time '" + key + "':", ms / 1000);
 }

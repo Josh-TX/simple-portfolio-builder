@@ -1,6 +1,4 @@
-import { PortfolioSummary } from "../models/models";
-import { ChartData } from "./chartDataBuilder";
-import { combinations, getSD, getSum } from "./helpers";
+import * as MathHelpers from "./math-helpers";
 import { Expression, Parser } from 'expr-eval';
 
 export class PortfolioBuilder{
@@ -21,7 +19,7 @@ export class PortfolioBuilder{
             this._filterExpr = parser.parse(filterExpr);
         }
         this._loggedError = false;
-        var comb = combinations(segmentCount, tickers.length);
+        var comb = MathHelpers.combinations(segmentCount, tickers.length);
         if (comb > 1000000){
             alert("too many combinations");
             return [];
@@ -59,38 +57,4 @@ export class PortfolioBuilder{
         }
         return output;
     }
-
-    applyPortfolioSummaries(chartData: ChartData, weightss: number[][]){
-        var portfolioSummaries: PortfolioSummary[] = [];
-        var segmentCount = getSum(weightss[0]);
-        var validDataColumns = chartData.dataColumns.filter(column => column.every(z => z != null));
-        var log2 = Math.log(2);
-        for (var weights of weightss){
-            var portfolioData: number[] = [];
-            for (var dataColumn of validDataColumns){
-                //when getting the weighted average of several funds, it can be tempting to just average the log-scaled returns
-                //but doing so is incorrect. That would result in the geometric mean of the different funds, which isn't what we want
-                //we need to exponent the log returns so that their just normal factor returns, get the arithmetic mean, and then log scale that result. 
-                var val: number = 0;
-                for (var i = 0; i < dataColumn.length; i++){
-                    val += Math.pow(2, dataColumn[i]!) * weights[i] / segmentCount
-                }
-                portfolioData.push(Math.log(val) / log2);
-            }
-            var sum = getSum(portfolioData)
-            var sd = getSD(portfolioData, sum);
-            if (sd == null){
-                console.warn("sd is null");
-                continue;
-            }
-            portfolioSummaries.push({
-                weights: weights,
-                avg: sum / portfolioData.length,
-                sd: sd!
-            });
-        }
-        return portfolioSummaries
-    }
 }
-
-export type TickerSegmentCount = {}

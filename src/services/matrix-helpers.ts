@@ -1,9 +1,8 @@
-import { DayPrice } from "../models/models";
-import { ChartDataColumn } from "./chartDataBuilder";
-import { getSum } from "./helpers";
+import * as MathHelpers from "./math-helpers";
 
-function transpose(matrix: number[][]): number[][] {
-    const transposed: number[][] = [];
+
+export function transpose<T>(matrix: T[][]): T[][] {
+    const transposed: T[][] = [];
     for (let i = 0; i < matrix[0].length; i++) {
         transposed[i] = [];
         for (let j = 0; j < matrix.length; j++) {
@@ -19,6 +18,7 @@ function multiply(matrixA: number[][], matrixB: number[][]): number[][] {
     const rowsB = matrixB.length;
     const colsB = matrixB[0].length;
     if (colsA !== rowsB) {
+        console.warn("provided matrices: ", matrixA, matrixB);
         throw "The 2 provided matrices can't be multiplied"
     }
     const result: number[][] = Array.from({ length: rowsA }, () => Array(colsB).fill(0));
@@ -33,11 +33,11 @@ function multiply(matrixA: number[][], matrixB: number[][]): number[][] {
     return result;
 }
 
-function generateStandardNormalSamples(size: number): number[][] {
+function generateStandardNormalSamples(columnCount: number, columnSize: number): number[][] {
     const samples: number[][] = [];
-    for (let i = 0; i < size; i++) {
+    for (let i = 0; i < columnCount; i++) {
         const sample: number[] = [];
-        for (let j = 0; j < 3; j++) {
+        for (let j = 0; j < columnSize; j++) {
             sample.push(Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random()));
         }
         samples.push(sample);
@@ -45,7 +45,7 @@ function generateStandardNormalSamples(size: number): number[][] {
     return samples;
 }
 
-function choleskyDecomposition(matrix: number[][]): number[][] {
+export function choleskyDecomposition(matrix: number[][]): number[][] | null {
     const n = matrix.length;
     const L: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
 
@@ -56,6 +56,9 @@ function choleskyDecomposition(matrix: number[][]): number[][] {
                 sum += L[i][k] * L[j][k];
             }
             if (i === j) {
+                if (matrix[i][i] - sum < 0){
+                    return null;
+                }
                 L[i][j] = Math.sqrt(matrix[i][i] - sum);
             } else {
                 L[i][j] = (matrix[i][j] - sum) / L[j][j];
@@ -69,11 +72,14 @@ export function generateData(
     means: number[], 
     stdDevs: number[], 
     correlationMatrix: number[][], 
-    size: number
+    columnCount: number
 ): number[][] {
-    const standardNormalSamples = generateStandardNormalSamples(size);
+    const standardNormalSamples = generateStandardNormalSamples(columnCount, means.length);
     const choleskyDecomp = choleskyDecomposition(correlationMatrix);
-    const transformedSamples = multiply(standardNormalSamples, transpose(choleskyDecomp));
+    if (choleskyDecomp == null){
+        throw "correlation matrix is not positive semi-definite";
+    }
+    const transformedSamples = multiply(standardNormalSamples, transpose(choleskyDecomp!));
     for (const sample of transformedSamples as number[][]) {
         for (let i = 0; i < sample.length; i++) {
             sample[i] = means[i] + stdDevs[i] * sample[i];
@@ -82,41 +88,13 @@ export function generateData(
     return transformedSamples;
 }
 
-function getCorrelation(x: number[], y: number[]): number {
+export function getCorrelation(x: number[], y: number[]): number {
     const n = x.length;
-    const meanX = getSum(x) / n;
-    const meanY = getSum(y) / n;
+    const meanX = MathHelpers.getSum(x) / n;
+    const meanY = MathHelpers.getSum(y) / n;
     const covariance = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0) / n;
     const varianceX = x.reduce((sum, xi) => sum + (xi - meanX) ** 2, 0) / n;
     const varianceY = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0) / n;
     const denominator = Math.sqrt(varianceX * varianceY);
     return denominator === 0 ? 0 : covariance / denominator;
-}
-
-export function getCorrelationMatrix(dataColumns: ChartDataColumn[]): number[][]{
-    if (!dataColumns.length || !dataColumns[0].length){
-        return []
-    }
-    var columnSize = dataColumns[0].length
-    var correlationMatrix: number[][] = Array.from({ length: columnSize }, () => Array(columnSize).fill(0));
-    for (var i = 0; i < columnSize; i++) {
-        for (var j = i; j < columnSize; j++) {
-            if (i === j) {
-                correlationMatrix[i][j] = 1;
-            } else {
-                var x: number[] = [];
-                var y: number[] = [];
-                for (var k = 0; k < dataColumns.length; k++){
-                    if (dataColumns[k][i] != null && dataColumns[k][j] != null){
-                        x.push(dataColumns[k][i]!);
-                        y.push(dataColumns[k][j]!);
-                    }
-                }
-                var r = getCorrelation(x, y);
-                correlationMatrix[i][j] = r;
-                correlationMatrix[j][i] = r;
-            }
-        }
-    }
-    return correlationMatrix;
 }
