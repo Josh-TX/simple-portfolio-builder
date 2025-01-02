@@ -4,3 +4,4 @@ a static site for viewing and analyzing stock market data. Catered towards long-
 
 This website is not financial advice. Use at your own risk.
 
+site available at https://josh-tx.github.io/investment-insights
