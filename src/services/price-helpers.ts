@@ -1,204 +1,166 @@
-import { DayVal, Row } from "../models/models";
+import { FundData } from "../models/models";
 import * as MathHelpers from "./math-helpers";
-import { choleskyDecomposition, getCorrelation } from "./matrix-helpers";
 
 var log2 = Math.log(2);
-
-export function interpolateDayPrices(dayPrices: DayVal[]): DayVal[] {
-    var output: DayVal[] = [];
-    for (var i = 0; i < dayPrices.length - 1; i++) {
-        output.push(dayPrices[i]);
-        var dayDiff = dayPrices[i + 1].dayNumber - dayPrices[i].dayNumber;
-        for (var j = 1; j < dayDiff; j++) {
-            var interpolated = dayPrices[i].val + (dayPrices[i + 1].val - dayPrices[i].val) * (j / dayDiff);
-            var dayNumber = dayPrices[i].dayNumber + j;
-            output.push({
-                dayNumber: dayNumber,
-                val: interpolated
-            });
-        }
-    }
-    return output;
-}
 
 /**
  * for each dayPrices, filters it to just DayNumbers shared by all the provided dayPricess
  */
-export function getIntersectionDayPricess(dayPricess: DayVal[][]): DayVal[][] {
-    if (dayPricess.length === 0) return [];
-    let dayNumbersSet = new Set(dayPricess[0].map(z => z.dayNumber));
-    for (let i = 1; i < dayPricess.length; i++) {
-        dayNumbersSet = new Set(dayPricess[i].filter(z => dayNumbersSet.has(z.dayNumber)).map(z => z.dayNumber));
-    }
-    return dayPricess.map(dayPrices => {
-        return dayPrices.filter(z => dayNumbersSet.has(z.dayNumber));
-    })
+export function getIntersectionDayPricess(fundDatas: FundData[]): FundData[] {
+    if (fundDatas.length === 0) return [];
+    var maxStartDayNumber = Math.max(...fundDatas.map(z => z.startDayNumber));
+    var minEndDayNumber = Math.min(...fundDatas.map(z => z.startDayNumber + z.values.length));
+    return fundDatas.map(fundData => {
+        var trimStart = maxStartDayNumber - fundData.startDayNumber;
+        var trimEnd = (fundData.startDayNumber + fundData.values.length) - minEndDayNumber;
+        var newValues = new Float32Array(fundData.values.length - trimStart - trimEnd);
+        for (var i = trimStart; i < fundData.values.length - trimEnd; i++){
+            newValues[i - trimStart] = fundData.values[i];
+        }
+        return {
+            startDayNumber: maxStartDayNumber,
+            dataType: "price",
+            values: newValues
+        };
+    });
 }
 
 /**
- * Finds the first DayNumber shared by all the provided DayPricess
+ * Finds the first DayNumber shared by all the provided fundDatas
  */
-export function getFirstCommonDayNumber(dayPricess: DayVal[][]): number {
-    var common = dayPricess[0][0].dayNumber;
-    for(var i = 1; i < dayPricess.length; i++){
-        common = Math.max(common, dayPricess[i][0].dayNumber);
+export function getFirstCommonDayNumber(fundDatas: FundData[]): number {
+    var common = fundDatas[0].startDayNumber;
+    for(var i = 1; i < fundDatas.length; i++){
+        common = Math.max(common, fundDatas[i].startDayNumber);
     }
     return common;
 }
 
-export function getReturns(dayPrices: DayVal[], returnDays: number): DayVal[] {
-    var output: DayVal[] = [];
-    for (var i = returnDays; i < dayPrices.length; i++) {
-        output.push({
-            dayNumber: dayPrices[i].dayNumber,
-            val: dayPrices[i].val / dayPrices[i - returnDays].val
-        });
+export function getReturns(fundData: FundData, returnDays: number): FundData {
+    var newValues = new Float32Array(fundData.values.length - returnDays);
+    for (var i = returnDays; i < fundData.values.length; i++) {
+        newValues[i - returnDays] = fundData.values[i] / fundData.values[i - returnDays];
     }
-    return output;
+    return {
+        startDayNumber: fundData.startDayNumber + returnDays,
+        dataType: "afr",
+        values: newValues
+    };
 }
 
-export function getLogReturns(dayReturns: DayVal[]): DayVal[] {
-    return dayReturns.map(z => ({ dayNumber: z.dayNumber, val: Math.log(z.val) / log2 }))
+export function getLogReturns(fundData: FundData): FundData {
+    var newValues = new Float32Array(fundData.values.length);
+    for (var i = 0; i < newValues.length; i++){
+        newValues[i] = Math.log(fundData.values[i]) / log2;
+    }
+    return {
+        startDayNumber: fundData.startDayNumber,
+        dataType: fundData.dataType,
+        values: newValues
+    };
 }
 
-export function getEqualizePrices(dayPrices: DayVal[], firstCommonDayNumber: number): DayVal[] {
-    var firstCommonDayPrice = dayPrices.find(z => z.dayNumber == firstCommonDayNumber)!;
-    var factor = 10 / firstCommonDayPrice.val;
-    return dayPrices.map(z => ({
-        dayNumber: z.dayNumber,
-        val: z.val * factor
-    }));
+
+export function getEqualizePrices(fundData: FundData, firstCommonDayNumber: number): FundData {
+    var daysToCommon = firstCommonDayNumber - fundData.startDayNumber
+    if (fundData.values.length <= daysToCommon){
+        console.warn("unable to properly getEqualizePrices (out of range)")
+        return fundData;
+    }
+    var commonPrice = fundData.values[daysToCommon];
+    var factor = 10 / commonPrice;
+    var newValues = new Float32Array(fundData.values.length);
+    for (let i = 0; i < newValues.length; i++) {
+        newValues[i] = fundData.values[i] * factor;
+    };
+    return {
+        values: newValues,
+        startDayNumber: fundData.startDayNumber,
+        dataType: fundData.dataType
+    }
 }
 
 
-export function getExponentReturns(dayLogReturns: DayVal[]): DayVal[] {
-    return dayLogReturns.map(z => ({ dayNumber: z.dayNumber, val: Math.pow(2, z.val) }))
+export function getExponentReturns(fundData: FundData): FundData {
+    var newValues = new Float32Array(fundData.values.length);
+    for (var i = 0; i < newValues.length; i++){
+        newValues[i] =  Math.pow(2, fundData.values[i])
+    }
+    return {
+        startDayNumber: fundData.startDayNumber,
+        dataType: "afr",
+        values: newValues
+    };
 }
 
-export function getExtrapolatedReturns(dayReturns: DayVal[], returnDays: number, extrapolateDays: number): DayVal[] {
+export function getExtrapolatedReturns(fundData: FundData, returnDays: number, extrapolateDays: number): FundData {
     var exponent = extrapolateDays / returnDays;
-    return dayReturns.map(z => ({ dayNumber: z.dayNumber, val: Math.pow(z.val, exponent) }))
+    var newValues = new Float32Array(fundData.values.length);
+    for (var i = 0; i < newValues.length; i++){
+        newValues[i] =  Math.pow(fundData.values[i], exponent)
+    }
+    return {
+        startDayNumber: fundData.startDayNumber,
+        dataType: fundData.dataType,
+        values: newValues
+    };
 }
 
-export function smoothData(dayVals: DayVal[], smoothDays: number): DayVal[] {
-    var output: DayVal[] = []
+export function getLosses(fundData: FundData): FundData {
+    var newValues = new Float32Array(fundData.values.length);
+    for (var i = 0; i < newValues.length; i++){
+        newValues[i] =  Math.min(0, fundData.values[i]);
+    }
+    return {
+        startDayNumber: fundData.startDayNumber,
+        dataType: "logafr",
+        values: newValues
+    };
+}
+
+export function getSmoothData(fundData: FundData, smoothDays: number): FundData {
+    var oldValues = fundData.values
+    var newValues = new Float32Array(oldValues.length);
     var sum = 0;
     var sideDays = Math.floor(smoothDays / 2);
     smoothDays = sideDays * 2 + 1;//in effect, smoothDays is just rounded down to the nearest odd number
-    var leftIndex = dayVals.length - sideDays;
-    for (var i = leftIndex; i < dayVals.length; i++) {
-        sum += dayVals[i].val;
+
+    //looks like this has the looping effect? not sure I wanna keep it that way. 
+    var leftIndex = oldValues.length - sideDays;
+    for (var i = leftIndex; i < oldValues.length; i++) {
+        sum += oldValues[i];
     }
-    leftIndex = leftIndex % dayVals.length;
+    leftIndex = leftIndex % oldValues.length;
     var rightIndex = sideDays;
     for (var i = 0; i <= rightIndex; i++) {
-        sum += dayVals[i].val;
+        sum += oldValues[i];
     }
-    for (var i = 0; i < dayVals.length - 1; i++) {
-        output.push({
-            dayNumber: dayVals[i].dayNumber,
-            val: sum / smoothDays
-        });
-        sum -= dayVals[leftIndex].val;
+    for (var i = 0; i < oldValues.length - 1; i++) {
+        newValues[i] = sum / smoothDays
+        sum -= oldValues[leftIndex];
         leftIndex++;
-        leftIndex = leftIndex % dayVals.length;
+        leftIndex = leftIndex % oldValues.length;
         rightIndex++;
-        rightIndex = rightIndex % dayVals.length;
-        sum += dayVals[rightIndex].val;
+        rightIndex = rightIndex % oldValues.length;
+        sum += oldValues[rightIndex];
     }
-    output.push({
-        dayNumber: dayVals[dayVals.length - 1].val,
-        val: sum / smoothDays
-    });
-    return output;
+    newValues[newValues.length - 1] = sum / smoothDays
+    return {
+        startDayNumber: fundData.startDayNumber,
+        dataType: fundData.dataType,
+        values: newValues
+    };
 }
 
 
-export function getUnionDayNumbers(dayPricess: DayVal[][]): number[] {
-    const dayNumbersSet = new Set<number>();
-    for (var dayPrices of dayPricess) {
-        for (const dayPrice of dayPrices) {
-            dayNumbersSet.add(dayPrice.dayNumber);
-        }
+export function getUnionDayNumbers(fundDatas: FundData[]): number[] {
+    var minDayNumber = Math.min(...fundDatas.map(z => z.startDayNumber));
+    var maxDayNumber = Math.max(...fundDatas.map(z => z.startDayNumber + z.values.length));
+    var dayNumbers = new Array<number>(1 + maxDayNumber - minDayNumber);
+    for (var i = minDayNumber; i <= maxDayNumber; i++){
+        dayNumbers[i - minDayNumber] = i;
     }
-    var dayNumbers = Array.from(dayNumbersSet);
-    dayNumbers.sort((z1, z2) => z1 - z2);
     return dayNumbers;
-}
-
-export function getCorrelationMatrix(dayLogAFRss: any[][], mustBePositiveSemiDefinite = false): number[][] {
-    throw "old implementation";
-    if (!dayLogAFRss.length) {
-        return []
-    }
-    var matrixSize = dayLogAFRss.length
-    var correlationMatrix: number[][] = Array.from({ length: matrixSize }, () => Array(matrixSize).fill(0));
-    for (var i = 0; i < matrixSize; i++) {
-        for (var j = i; j < matrixSize; j++) {
-            if (i === j) {
-                correlationMatrix[i][j] = 1;
-            } else {
-                var commonLogAfrs = getIntersectionDays([dayLogAFRss[i], dayLogAFRss[j]]);
-                var x = commonLogAfrs[0].map(z => z.logAfr);
-                var y = commonLogAfrs[1].map(z => z.logAfr);
-                var r = getCorrelation(x, y);
-                correlationMatrix[i][j] = r;
-                correlationMatrix[j][i] = r;
-            }
-        }
-    }
-    //if we're just displaying this matrix and not simulating anything with it, we can just stop here.
-    if (!mustBePositiveSemiDefinite) {
-        return correlationMatrix;
-    }
-    //the choleskyDecomposition() function will return null if it's not positive semi-definite
-    var choleskyDecomp = choleskyDecomposition(correlationMatrix);
-    if (choleskyDecomp != null) {
-        return correlationMatrix;
-    }
-    //at this point, the matrix we just calculated is not positive semi-definite. This means that it's technically an impossible correlation matrix.
-    //the reason this can happen is that each correlation is calculated with as much data as the 2 funds have in common.
-    //this should make each individual correlation more accurate, but it can occaisionally make impossible correlation matrices. This is more likely for large matrices
-    //So, to fix this, we'll just calculate a correlation matrix using just data that ALL the funds have in common. 
-
-    //I'll do this later
-    throw "todo: re-calculate correlation Matrix"
-}
-
-//assumes dayss are already sorted by timestamp
-export function getIntersectionDays<T extends { timestamp: number }>(dayss: Row<T>[]): Row<T>[] {
-    if (!dayss.length || dayss.some(z => !z.length)) {
-        return [];
-    }
-    var lastIndexes: number[] = dayss.map(_ => 0);
-    var lastTimestamps: number[] = dayss.map(z => z[0].timestamp);
-    var outputRows: Row<T>[] = dayss.map(_ => []);
-    while (true) {
-        var minValue = Math.min(...lastTimestamps);
-        var maxValue = Math.max(...lastTimestamps);
-        if (minValue == maxValue) {
-            for (var i = 0; i < dayss.length; i++) {
-                outputRows[i].push(dayss[i][lastIndexes[i]])
-            }
-            for (var i = 0; i < dayss.length; i++) {
-                lastIndexes[i]++;
-                if (lastIndexes[i] >= dayss[i].length) {
-                    return outputRows;
-                }
-                lastTimestamps[i] = dayss[i][lastIndexes[i]].timestamp
-            }
-        } else {
-            for (var i = 0; i < dayss.length; i++) {
-                while (lastTimestamps[i] < maxValue) {
-                    lastIndexes[i]++;
-                    if (lastIndexes[i] >= dayss[i].length) {
-                        return outputRows;
-                    }
-                    lastTimestamps[i] = dayss[i][lastIndexes[i]!].timestamp
-                }
-            }
-        }
-    }
 }
 
 /**
@@ -207,22 +169,17 @@ export function getIntersectionDays<T extends { timestamp: number }>(dayss: Row<
  * @param dayVals Must already be sorted by timestamp. Could be any type of dayVal list (price, returns, logReturns, etc.)
  * @returns a list a (number | null)[] who's length will match the length of dayNumbers.length
  */
-export function matchDataToDayNumbers(dayNumbers: number[], dayVals: DayVal[]): (number | null)[] {
-    var lastIndex = 0;
+export function matchDataToDayNumbers(dayNumbers: number[], fundData: FundData | null): (number | null)[] {
+    if (fundData == null){
+        return dayNumbers.map(_ => null);
+    }
     var output: (number | null)[] = [];
     for (var dayNumber of dayNumbers) {
-        while (lastIndex < dayVals.length && dayVals[lastIndex].dayNumber < dayNumber) {
-            lastIndex++;
-        }
-        if (lastIndex >= dayVals.length) {
-            output.push(null);
-        } else if (dayVals[lastIndex].dayNumber == dayNumber) {
-            output.push(dayVals[lastIndex].val);
-            lastIndex++;
+        if (dayNumber >= fundData.startDayNumber && dayNumber <= (fundData.startDayNumber + fundData.values.length)){
+            output.push(fundData.values[dayNumber - fundData.startDayNumber]);
         } else {
             output.push(null);
         }
-
     }
     return output;
 }
@@ -231,10 +188,10 @@ export function matchDataToDayNumbers(dayNumbers: number[], dayVals: DayVal[]): 
  * Gets the average annual factor return
  * @param dayPrices a list of dayPrices (the stock's value)
  */
-export function getAvgAfr(dayPrices: DayVal[]): number {
-    var last = dayPrices[dayPrices.length - 1];
-    var dayDiff = last.dayNumber - dayPrices[0].dayNumber;
-    var avgAfr = ((last.val / dayPrices[0].val) ** (365 / dayDiff));
+export function getAvgAfr(fundData: FundData): number {
+    var lastVal = fundData.values[fundData.values.length - 1];
+    var dayDiff = fundData.values.length;
+    var avgAfr = ((lastVal / fundData.values[0]) ** (365 / dayDiff));
     return avgAfr;
 }
 
@@ -251,108 +208,60 @@ export function everyNthItem<T>(arr: T[], n: number): T[] {
 
 /**
  * gets the value of the portfolio over time, assuming we started with $10
- * @param dayPricess a list of a list of dayPrices (the stock's value), should already be interpolated and intersected
+ * @param fundDatas a list of a list of fundData
  * @param weights a list of weights for desired holding of each stock. Magnitude doesn't matter, just relative proportion
  * @param rebalanceDays how often (in days) the portfolio's holdings should be redistributed to match the weights
  */
-export function getPortfolioDayPrices(dayPricess: DayVal[][], weights: number[], rebalanceDays: number): DayVal[] {
-    //assumes days have already been interpolated
-    if (Math.min(...dayPricess.map(z => z.length)) != Math.max(...dayPricess.map(z => z.length))) {
-        throw "all dayPricess must be same length";
+export function getPortfolioDayPrices(fundDatas: FundData[], weights: number[], rebalanceDays: number): FundData {
+    if (Math.min(...fundDatas.map(z => z.values.length)) != Math.max(...fundDatas.map(z => z.values.length))) {
+        throw "all fundDatas must have the same values length";
     }
-    if (dayPricess.length != weights.length) {
-        throw "weights.length must match dayPricess.length";
+    if (Math.min(...fundDatas.map(z => z.startDayNumber)) != Math.max(...fundDatas.map(z => z.startDayNumber))) {
+        throw "all fundDatas must have the same startDayNumber";
     }
-    if (!dayPricess.length || !dayPricess[0].length) {
-        return [];
+    if (fundDatas.length != weights.length) {
+        throw "weights.length must match fundDatas.length";
+    }
+    if (!fundDatas.length) {
+        throw "fundDatas is empty";
     }
     var sumWeight = MathHelpers.getSum(weights);
     var startMoney = 10;
-    var shares: number[] = [];
-    var output: DayVal[] = [];
+    var shares: number[] = [];//stores how many shares we have of each fund
+    var newValues = new Float32Array(fundDatas[0].values.length);
     for (var i = 0; i < weights.length; i++) {
         var moneyForCurrentFund = weights[i] / sumWeight * startMoney;
-        shares.push(moneyForCurrentFund / dayPricess[i][0].val)
+        shares.push(moneyForCurrentFund / fundDatas[i].values[0])
     }
     var lastRebalanceIndex = 0;
-    for (var i = 0; i < dayPricess[0].length; i++) {
+    for (var i = 0; i < fundDatas[0].values.length; i++) {
         var sumMoney = 0;
         for (var j = 0; j < shares.length; j++) {
-            sumMoney += dayPricess[j][i].val * shares[j];
+            sumMoney += fundDatas[j].values[i] * shares[j];
         }
         if (i - lastRebalanceIndex == rebalanceDays) {
             for (var j = 0; j < weights.length; j++) {
                 var moneyForCurrentFund = weights[j] / sumWeight * sumMoney;
-                shares[j] = moneyForCurrentFund / dayPricess[j][i].val
+                shares[j] = moneyForCurrentFund / fundDatas[j].values[i]
             }
             lastRebalanceIndex = i;
         }
-        output.push({
-            dayNumber: dayPricess[0][i].dayNumber,
-            val: sumMoney
-        });
+        newValues[i] = sumMoney;
     }
-    var lastRebalanceIndex = 0;
-    return output;
-}
-/**
- * gets the holdings of each fund in the portfolio over time, assuming we started with $10
- * @param dayPricess a list of a list of dayPrices (the stock's value), should already be interpolated and intersected
- * @param weights a list of weights for desired holding of each stock. Magnitude doesn't matter, just relative proportion
- * @param rebalanceDays how often (in days) the portfolio's holdings should be redistributed to match the weights
- * @param rebalanceIndexes this is only written to and not read from. Stores the indexes (nth day) that a rebalance occurred
- */
-export function getPortfolioDayPricess(dayPricess: DayVal[][], weights: number[], rebalanceDays: number, rebalanceIndexes: number[]): DayVal[][] {
-    //assumes days have already been interpolated
-    if (Math.min(...dayPricess.map(z => z.length)) != Math.max(...dayPricess.map(z => z.length))) {
-        throw "all dayPricess must be same length";
-    }
-    if (dayPricess.length != weights.length) {
-        throw "weights.length must match dayPricess.length";
-    }
-    if (!dayPricess.length || !dayPricess[0].length) {
-        return [];
-    }
-    var sumWeight = MathHelpers.getSum(weights);
-    var startMoney = 10;
-    var shares: number[] = [];
-    var output: DayVal[][] = weights.map(_ => []);
-    for (var i = 0; i < weights.length; i++) {
-        var moneyForCurrentFund = weights[i] / sumWeight * startMoney;
-        shares.push(moneyForCurrentFund / dayPricess[i][0].val)
-    }
-    var lastRebalanceIndex = 0;
-    for (var i = 0; i < dayPricess[0].length; i++) {
-        if (i - lastRebalanceIndex == rebalanceDays) {
-            var sumMoney = 0;
-            for (var j = 0; j < shares.length; j++) {
-                sumMoney += dayPricess[j][i].val * shares[j];
-            }
-            for (var j = 0; j < weights.length; j++) {
-                var moneyForCurrentFund = weights[j] / sumWeight * sumMoney;
-                shares[j] = moneyForCurrentFund / dayPricess[j][i].val
-            }
-            lastRebalanceIndex = i;
-            rebalanceIndexes.push(i);
-        }
-        for (var j = 0; j < shares.length; j++) {
-            output[j].push({
-                dayNumber: dayPricess[j][i].dayNumber,
-                val: dayPricess[j][i].val * shares[j]
-            });
-        }
-    }
-    var lastRebalanceIndex = 0;
-    return output;
+    return {
+        startDayNumber: fundDatas[0].startDayNumber,
+        dataType: "price",
+        values: newValues
+    };
 }
 
-export function getMaxDrawdown(dayPrices: DayVal[], daysMaintained: number): { drawdown: number, prices: DayVal[] } | null {
+export function getMaxDrawdown(fundData: FundData, daysMaintained: number): { drawdown: number, fundData: FundData } | null {
     var windowMax = -1/0;
     var windowMin = 1/0
     var windowStartInd = 0
     for (var i = 0; i < daysMaintained; i++){
-        windowMax = Math.max(windowMax, dayPrices[i].val)
-        windowMin = Math.min(windowMin, dayPrices[i].val)
+        windowMax = Math.max(windowMax, fundData.values[i])
+        windowMin = Math.min(windowMin, fundData.values[i])
     }
 
     var peakVal = windowMin;
@@ -361,20 +270,20 @@ export function getMaxDrawdown(dayPrices: DayVal[], daysMaintained: number): { d
     var drawdownStartInd: number | null = null;
     var drawdownEndInd: number | null = null;
 
-    for (var i = daysMaintained; i < dayPrices.length; i++){
-        var recalcNeeded = (dayPrices[windowStartInd].val == windowMin && dayPrices[i].val > windowMin) 
-            || (dayPrices[windowStartInd].val == windowMax && dayPrices[i].val < windowMax);
+    for (var i = daysMaintained; i < fundData.values.length; i++){
+        var recalcNeeded = (fundData.values[windowStartInd] == windowMin && fundData.values[i] > windowMin) 
+            || (fundData.values[windowStartInd] == windowMax && fundData.values[i] < windowMax);
         windowStartInd++;
         if (recalcNeeded){
             var windowMax = -1/0;
             var windowMin = 1/0
             for (var j = windowStartInd; j <= i; j++){
-                windowMax = Math.max(windowMax, dayPrices[j].val)
-                windowMin = Math.min(windowMin, dayPrices[j].val)
+                windowMax = Math.max(windowMax, fundData.values[j])
+                windowMin = Math.min(windowMin, fundData.values[j])
             }
         } else {
-            windowMax = Math.max(windowMax, dayPrices[i].val)
-            windowMin = Math.min(windowMin, dayPrices[i].val)
+            windowMax = Math.max(windowMax, fundData.values[i])
+            windowMin = Math.min(windowMin, fundData.values[i])
         }
 
         var drawdown = (peakVal - windowMax) / peakVal;
@@ -390,24 +299,18 @@ export function getMaxDrawdown(dayPrices: DayVal[], daysMaintained: number): { d
     }
 
     if (drawdownStartInd != null && drawdownEndInd != null) {
+        var newValues = new Float32Array(1 + drawdownEndInd - drawdownStartInd);
+        for (var i = drawdownStartInd; i <= drawdownEndInd; i++){
+            newValues[i - drawdownStartInd] = fundData.values[i];
+        }
         return {
             drawdown: maxDrawdown,
-            prices: dayPrices.slice(drawdownStartInd, drawdownEndInd + 1)
+            fundData: {
+                startDayNumber: fundData.startDayNumber + drawdownStartInd,
+                dataType: "price",
+                values: newValues
+            }
         };
     }
     return null;
-} 
-
-export function getAdjustPrices(dayPrices: DayVal[], logAFR: number): DayVal[] {
-    var output: DayVal[] = [];
-    var dailyFactor = Math.pow(2 ** logAFR, 1/365);
-    var curFactor = dailyFactor;
-    for (var i = 1; i < dayPrices.length; i++) {
-        output.push({
-            dayNumber: dayPrices[i].dayNumber,
-            val: dayPrices[i].val * curFactor
-        });
-        curFactor *= dailyFactor;
-    }
-    return output;
 }

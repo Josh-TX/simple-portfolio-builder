@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import LogReturnsComp from './components/VisualizeComponent.vue';
-import PortfolioBuilderComp from './components/PortfolioBuilderComponent.vue';
-import SimulatePortfolioComp from './components/SimulatePortfolioComponent.vue';
+import LineChartPageComponent from './components/LineChartPageComponent.vue';
+import ScatterplotPageComponent from './components/ScatterplotPageComponent.vue';
+import StatsPageComponent from './components/StatsPageComponent.vue';
 import { ref, computed } from 'vue';  
 
 const routes: { [key: string]: any } = {
-    '/log-returns': LogReturnsComp,
-    '/portfolio-builder': PortfolioBuilderComp,
-    '/simulate-portfolio': SimulatePortfolioComp
+    '/line-chart': LineChartPageComponent,
+    '/scatterplot': ScatterplotPageComponent,
+    '/stats': StatsPageComponent
 }
 
 const currentPath = ref(window.location.hash)
@@ -19,21 +19,36 @@ window.addEventListener('hashchange', () => {
 const currentView = computed(() => {
     var comp =  routes[currentPath.value.slice(1)] ;
     if (!comp){
-        window.location.hash = "/log-returns"
+        window.location.hash = "/line-chart"
     }
-    return comp || LogReturnsComp;
+    return comp || LineChartPageComponent;
 })
 
 
 </script>
 
 <template>
-    <div style="display: flex;">
-        <a href="#/log-returns">Log Returns</a> |
-        <a href="#/portfolio-builder">Portfolio Builder</a> |
-        <a href="#/simulate-portfolio">Simulate Portfolio</a>
+    <div style="height: 100%; display: flex; flex-direction: column">
+        <div style="display: flex;" class="navbar">
+            <a href="#/line-chart">Line Chart</a> 
+            <a href="#/scatterplot">Scatterplot</a> 
+            <a href="#/stats">Stats</a>
+        </div>
+        <div style="flex: 1 1 0;">
+            <component :is="currentView" />
+        </div>
     </div>
-    <component :is="currentView" />
 </template>
 
-<style scoped></style>
+<style scoped>
+    .navbar {
+        height: 32px;
+        line-height: 32px;
+        background: rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .navbar > a {
+        font-weight: 400;
+        padding: 0 12px;
+    }
+</style>

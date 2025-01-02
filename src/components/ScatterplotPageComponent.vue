@@ -49,11 +49,11 @@ watch(axisInputsY, () => {
 async function generate() {
     var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
     var promises = tickerArray.map(z => getPriceHistory(z));
-    var dayPricess = await Promise.all(promises);
-    var newestIndex = dayPricess.reduce((index, dayPrices, i) => dayPrices[0].dayNumber > dayPricess[index][0].dayNumber ? i : index, 0);
+    var fundDatas = await Promise.all(promises);
+    var newestIndex = fundDatas.reduce((index, fundData, i) => fundData.startDayNumber > fundDatas[index].startDayNumber ? i : index, 0);
     newestTicker.value = tickerArray[newestIndex];
-    newestTickerStart.value = new Date(dayPricess[newestIndex][0].dayNumber * 86400000).toISOString().split('T')[0];
-    dataContainer.value =  await getScatterplotDataContainer(tickerArray, dayPricess, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY);
+    newestTickerStart.value = new Date(fundDatas[newestIndex].startDayNumber * 86400000).toISOString().split('T')[0];
+    dataContainer.value =  await getScatterplotDataContainer(tickerArray, fundDatas, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY);
     updateHighlightedIndexes();
 }
 
@@ -104,14 +104,7 @@ function getTitle(axis: "x" | "y"): string{
     if (inputs.mode == "logReturnSD"){
         return `Log Return Standard Deviation (${inputs.returnDays}, ${inputs.smoothDays})`;
     }
-    if (inputs.mode == "riskAdjReturn"){
-        return `Risk-Adj Return(${inputs.returnDays}, ${inputs.smoothDays}, ${inputs.riskAdjSD})`;
-    }
     throw "unknown mode";
-}
-
-function isReturn(inputs: ScatterplotAxisInputs): boolean{
-    return inputs.mode == "return" || inputs.mode == "riskAdjReturn"
 }
 
 // function getPorfolioName(tickers: string[], weights: number[]){
@@ -172,62 +165,64 @@ async function pointClicked(summary: PortfolioSummary | null) {
 </script>
 
 <template>
-    <TickerInputComponent />
-    <div style="display: flex; width: 100%; margin-top: 8px; gap: 12px;">
-        <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
-            <div style="line-height: 1rem; margin-bottom: 2px;">X-axis</div>
-            <ScatterplotInputComponent v-model:inputs="axisInputsX"></ScatterplotInputComponent>
+    <div style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 4px 12px;">
+        <TickerInputComponent />
+        <div style="display: flex; width: 100%; margin-top: 8px; gap: 12px;">
+            <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
+                <div style="line-height: 1rem; margin-bottom: 2px;">X-axis</div>
+                <ScatterplotInputComponent v-model:inputs="axisInputsX"></ScatterplotInputComponent>
+            </div>
+            <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
+                <div style="line-height: 1rem; margin-bottom: 2px;">Y-axis</div>
+                <ScatterplotInputComponent v-model:inputs="axisInputsY"></ScatterplotInputComponent>
+            </div>
         </div>
-        <div style="width: 100%; background: #333; padding: 8px; border-radius: 4px; box-shadow: 1px 1px 3px #00000055;">
-            <div style="line-height: 1rem; margin-bottom: 2px;">Y-axis</div>
-            <ScatterplotInputComponent v-model:inputs="axisInputsY"></ScatterplotInputComponent>
+        <div style="display: flex; gap: 16px;">
+            <div>
+                <label>Segment Count</label>
+                <br>
+                <select v-model="segmentCount">
+                    <option :value="4">4 (25% per segment)</option>
+                    <option :value="5">5 (20% per segment)</option>
+                    <option :value="6">6 (16.66% per segment)</option>
+                    <option :value="8">8 (12.5% per segment)</option>
+                    <option :value="10">10 (10% per segment)</option>
+                    <option :value="12">12 (8.33% per segment)</option>
+                    <option :value="16">16 (6.25% per segment)</option>
+                    <option :value="20">20 (5% per segment)</option>
+                </select>
+            </div>
+            <div style="flex: 1; padding-right: 8px;">
+                <label>Filter Portfolios by Expression</label>
+                <br>
+                <input v-model="filterExpr" style="width: 100%">
+            </div>
+            <div style="flex: 0.5; padding-right: 8px;">
+                <label>Highlight Portfolios by Expression</label>
+                <br>
+                <input v-model="highlightExpr" style="width: 100%">
+            </div>
+            <button @click="generate">Generate</button>
         </div>
-    </div>
-    <div style="display: flex; gap: 16px;">
-        <div>
-            <label>Segment Count</label>
-            <br>
-            <select v-model="segmentCount">
-                <option :value="5">5 (20% per segment)</option>
-                <option :value="8">8 (12.5% per segment)</option>
-                <option :value="10">10 (10% per segment)</option>
-                <option :value="12">12 (8.33% per segment)</option>
-                <option :value="20">20 (5% per segment)</option>
-            </select>
-        </div>
-        <div style="flex: 1; padding-right: 8px;">
-            <label>Filter Portfolios by Expression</label>
-            <br>
-            <input v-model="filterExpr" style="width: 100%">
-        </div>
-        <div style="flex: 0.5; padding-right: 8px;">
-            <label>Highlight Portfolios by Expression</label>
-            <br>
-            <input v-model="highlightExpr" style="width: 100%">
-        </div>
-        <button @click="generate">Generate</button>
-    </div>
-    <div class="scatterplot-container">
-        <div class="y-label-container">
-            <span class="abs-label y-label-top good" v-if="isReturn(axisInputsY)">better</span>
-            <span class="abs-label y-label-top bad" v-else>worse</span>
-            <span> {{ getTitle('y') }}</span>
-            <span class="abs-label y-label-bottom good" v-if="!isReturn(axisInputsY)">better</span>
-            <span class="abs-label y-label-bottom bad" v-else>worse</span>
-        </div>
-        <div style="min-height: 400px; max-height: 70vh; position: relative;">
-            <div v-if="newestTicker" class="newest-ticker">{{ newestTicker }} began {{ newestTickerStart }}</div>
-            <h2 v-if="!dataContainer" class="not-generated-msg">Click "Generate" to compute possible portfolios</h2>
+        <div class="scatterplot-container">
             <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
             </ScatterplotChart>
-        </div>
-        <div></div>
-        <div class="x-label-container">
-            <span class="abs-label x-label-left good" v-if="!isReturn(axisInputsX)">better</span>
-            <span class="abs-label x-label-left bad" v-else>worse</span>
-            <span> {{ getTitle('x') }}</span>
-            <span class="abs-label x-label-right good" v-if="isReturn(axisInputsX)">better</span>
-            <span class="abs-label x-label-right bad" v-else>worse</span>
+            <div v-if="newestTicker" class="newest-ticker">{{ newestTicker }} began {{ newestTickerStart }}</div>
+            <h2 v-if="!dataContainer" class="not-generated-msg">Click "Generate" to compute possible portfolios</h2>
+            <div style="position: absolute; left: 0; width: 30px; top: 0; bottom: 30px;" class="y-label-container">
+                <span class="color-label y-label-top good" v-if="axisInputsY.mode == 'return'">better</span>
+                <span class="color-label y-label-top bad" v-else>worse</span>
+                <span> {{ getTitle('y') }}</span>
+                <span class="color-label y-label-bottom good" v-if="axisInputsY.mode != 'return'">better</span>
+                <span class="color-label y-label-bottom bad" v-else>worse</span>
+            </div>
+            <div style="position: absolute; bottom: 0; height: 30px; left: 30px; right: 0;" class="x-label-container">
+                <span class="color-label x-label-left good" v-if="axisInputsX.mode != 'return'">better</span>
+                <span class="color-label x-label-left bad" v-else>worse</span>
+                <span> {{ getTitle('x') }}</span>
+                <span class="color-label x-label-right good" v-if="axisInputsX.mode == 'return'">better</span>
+                <span class="color-label x-label-right bad" v-else>worse</span>
+            </div>
         </div>
     </div>
 
@@ -250,13 +245,15 @@ async function pointClicked(summary: PortfolioSummary | null) {
 
 <style scoped>
 .scatterplot-container{
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: 1fr auto;
-    gap: 10px;
+    flex: 1 0 0; 
+    min-height: 1px; 
+    position: relative; 
+    min-height: 350px; 
+    padding-left: 30px; 
+    padding-bottom: 30px;
 }
 
-.abs-label {
+.color-label {
   position: absolute;
   z-index: -1;
   opacity: 0.7;
@@ -301,11 +298,11 @@ async function pointClicked(summary: PortfolioSummary | null) {
 
 .not-generated-msg{
     position: absolute;
-    top: 20%;
+    top: 40%;
     text-align: center;
     left: 0;
     right: 0;
-    opacity: 0.7;
+    opacity: 0.4;
 }
 
 .newest-ticker {

@@ -10,19 +10,20 @@ export class PortfolioBuilder{
 
     }
 
-    getWeights(tickers: string[], segmentCount: number, filterExpr: string): number[][]{
+    getWeights(tickers: string[], segmentCount: number, filterExpr: string): number[][] | null{
         this._tickers = tickers.map(z => z.toLowerCase()).map(z => z == "$" ? "moneymarket" : z);
         this._filterExpr = null;
         if (filterExpr){
-            filterExpr = filterExpr.toLowerCase().replace(/(?<![<>!=])=(?![=])/g, '==').replace(/&&?/g, ' and ').replace(/\|\|?/g, ' or ').replace("$", ' moneymarket ');;
+            //replace `=` with `==`, `&` or `&&` with ` and `, `|` or `||` with ` or `
+            filterExpr = filterExpr.toLowerCase().replace(/(?<![<>!=])=(?![=])/g, '==').replace(/&&?/g, ' and ').replace(/\|\|?/g, ' or ').replace("$", ' moneymarket ');
             var parser =  new Parser();
             this._filterExpr = parser.parse(filterExpr);
         }
         this._loggedError = false;
         var comb = MathHelpers.combinations(segmentCount, tickers.length);
-        if (comb > 1000000){
-            alert("too many combinations");
-            return [];
+        if (comb > 1000000 && !filterExpr){
+            console.error("settings would've generated " + comb + " portfolios. That is way too many.");
+            return null;
         }
         return this.getWeightPermutations(0, Array(tickers.length).fill(0), segmentCount)
     }

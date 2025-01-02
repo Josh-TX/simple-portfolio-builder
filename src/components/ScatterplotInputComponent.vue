@@ -18,15 +18,14 @@ const inputs = defineModel<ScatterplotAxisInputs>("inputs", {required: true})
                 <option value="logReturnSD">Log Return SD</option>
                 <option value="logLossRMS">Log Loss RMS</option>
                 <option value="maxDrawdown">Max Drawdown</option>
-                <option value="riskAdjReturn">Risk-Adj Return</option>
             </select>
         </div>
-        <div v-if="inputs.mode == 'logReturnSD' || inputs.mode == 'logLossRMS' || inputs.mode == 'riskAdjReturn'">
+        <div v-if="inputs.mode == 'logReturnSD' || inputs.mode == 'logLossRMS'">
             <label>Return Period</label>
             <br>
             <input v-model.number="inputs.returnDays">
         </div>
-        <div v-if="inputs.mode == 'logReturnSD' || inputs.mode == 'logLossRMS' || inputs.mode == 'riskAdjReturn'">
+        <div v-if="inputs.mode == 'logReturnSD' || inputs.mode == 'logLossRMS'">
             <label>Smooth N Days</label>
             <br>
             <input v-model.number="inputs.smoothDays">
@@ -35,11 +34,6 @@ const inputs = defineModel<ScatterplotAxisInputs>("inputs", {required: true})
             <label>peak & trough days maintained</label>
             <br>
             <input v-model.number="inputs.drawdownDays">
-        </div>
-        <div v-if="inputs.mode == 'riskAdjReturn'">
-            <label>Std Dev adjustment (must be between -2 & 0)</label>
-            <br>
-            <input v-model.number="inputs.riskAdjSD" max="0" min="-2">
         </div>
     </div>
 </template>

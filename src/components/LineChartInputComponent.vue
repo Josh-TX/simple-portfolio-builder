@@ -18,7 +18,6 @@ const inputs = defineModel<LineChartDataInputs>("inputs", {required: true})
                 <option value="price">Price</option>
                 <option value="returns">Returns</option>
                 <option value="logReturns">Log Returns</option>
-                <option value="portfolioHoldings">Portfolio Holdings</option>
                 <option value="maxDrawdown">Max Drawdown</option>
                 <option value="logLosses">Log Losses</option>
             </select>
@@ -36,10 +35,6 @@ const inputs = defineModel<LineChartDataInputs>("inputs", {required: true})
         <div style="padding-top: 24px;" v-if="inputs.mode == 'price' || inputs.mode == 'maxDrawdown'"> 
             <input type="checkbox" v-model.boolean="inputs.equalPrice">
             <label>Equalize Starting Price</label>
-        </div>
-        <div style="padding-top: 24px;" v-if="inputs.mode == 'portfolioHoldings'"> 
-            <input type="checkbox" v-model.boolean="inputs.showRebalance">
-            <label>Show Rebalance Lines (causes severe lag)</label>
         </div>
         <div v-if="inputs.mode == 'returns' || inputs.mode == 'logReturns' || inputs.mode == 'logLosses'">
             <label>Return Extrapolation</label>

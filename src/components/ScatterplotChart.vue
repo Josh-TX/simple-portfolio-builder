@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Chart, registerables, ScatterDataPoint, ScriptableContext } from 'chart.js';
-import { onMounted, watch } from 'vue'
+import { Chart, registerables, ScatterDataPoint } from 'chart.js';
+import { onMounted, toRaw, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
-import {  ScatterplotDataContainer } from '../models/models';
+import {  ScatterplotDataContainer, ScatterplotPoint } from '../models/models';
+import * as MathHelpers from '../services/math-helpers';
 
 Chart.register(zoomPlugin);
 Chart.register(...registerables);
@@ -10,22 +11,27 @@ Chart.register(...registerables);
 var props = defineProps<{ dataContainer: ScatterplotDataContainer | null, highlightedIndexes: number[] }>();
 var emits = defineEmits(['point-clicked'])
 var _chart: Chart<"scatter", ScatterDataPoint[], string> | null = null;
-var selectedIndexes = new Set<number>();
-var prevPointCount: number | null;
+var selectedPointWeights: number[][] = [];
+var selectedPointTickers: string[] = [];
+
+var _points: ScatterplotPoint[][] = [];
 
 watch(() => props.dataContainer, async () => {
     if (props.dataContainer) {
-        if (prevPointCount != props.dataContainer.points.length){
-            selectedIndexes = new Set();
+        if (JSON.stringify(selectedPointTickers) != JSON.stringify(props.dataContainer.seriesLabels)){
+            selectedPointWeights = [];
         }
-        prevPointCount = props.dataContainer.points.length
+        else if (selectedPointWeights.length && MathHelpers.getSum(selectedPointWeights[0]) != MathHelpers.getSum(props.dataContainer.points[0].weights)){
+            selectedPointWeights = [];
+        }
+        selectedPointTickers = props.dataContainer.seriesLabels;
         _tryRenderChart();
     }
 });
 
 watch(() => props.highlightedIndexes, async () => {
     if (_chart) {
-        _chart.update();
+        updateDatasetData();
     }
 });
 
@@ -47,21 +53,85 @@ function clickHandler(event: MouseEvent) {
     var clickedPoints = _chart!.getElementsAtEventForMode(event, "nearest", { intersect: true }, true);
     if (clickedPoints.length) {
         if (event.ctrlKey){
-            clickedPoints.forEach(z => selectedIndexes.add(z.index));
+            clickedPoints.forEach(z => {
+                var point = _points[z.datasetIndex][z.index];
+                selectedPointWeights.push(point.weights);
+            });
         } else {
-            selectedIndexes = new Set(clickedPoints.map(z => z.index));
+            selectedPointWeights = clickedPoints.map(z => {
+                var point = _points[z.datasetIndex][z.index];
+                return point.weights;
+            });
         }
-        var points = Array.from(selectedIndexes).map(z => props.dataContainer!.points[z])
-        emits('point-clicked', points);
-        _chart!.update();
+        emits('point-clicked', selectedPointWeights);
+        updateDatasetData();
     } else {
-        if (selectedIndexes.size && !event.ctrlKey) {
-            selectedIndexes = new Set();
+        if (selectedPointWeights.length && !event.ctrlKey) {
+            selectedPointWeights = [];
             emits('point-clicked', null);
-            _chart!.update();
+            updateDatasetData();
         }
     }
 
+}
+
+type ChartPoint = {
+    x: number, y: number
+}
+
+function updateDatasetData(){
+    var datasetsData = getDatasetsData();
+    _chart!.data.datasets[0].data = datasetsData.selected;
+    _chart!.data.datasets[1].data = datasetsData.highlighted;
+    _chart!.data.datasets[2].data = datasetsData.main;
+    _chart!.update();
+}
+
+function getMatchIndexOf(selectedPointWeights: number[][], weights: number[]): number{
+    if (!selectedPointWeights.length){
+        return -1;
+    }
+    for (var i = 0; i < selectedPointWeights.length; i++){
+        var match = true;
+        for (var j = 0; j < weights.length; j++){
+            if (selectedPointWeights[i][j] != weights[j]){
+                match = false;
+                break;
+            }
+        }
+        if (match){
+            return i;
+        }
+    }
+    return -1;
+}
+
+function getDatasetsData(): {main: ChartPoint[], highlighted: ChartPoint[], selected: ChartPoint[]}{
+    var main: ChartPoint[] = [];
+    var highlighted: ChartPoint[] = [];
+    var selected: ChartPoint[] = [];
+    _points = [[],[],[]];
+    var remainingSelectedPointWeights = [...selectedPointWeights]
+    for (var i = 0; i < props.dataContainer!.points.length; i++){
+        var point = toRaw(props.dataContainer!.points[i]);
+        var selectedIndex = getMatchIndexOf(remainingSelectedPointWeights, point.weights)
+        if (selectedIndex >= 0){
+            selected.push({x: point.x, y: point.y});
+            _points[0].push(point);
+            remainingSelectedPointWeights.splice(selectedIndex, 1)
+        } else if (props.highlightedIndexes.includes(i)){
+            highlighted.push({x: point.x, y: point.y});
+            _points[1].push(point);
+        } else {
+            main.push({x: point.x, y: point.y});
+            _points[2].push(point);
+        }
+    }
+    return {
+        main,
+        highlighted,
+        selected
+    }
 }
 
 function _tryRenderChart() {
@@ -73,28 +143,38 @@ function _tryRenderChart() {
     }
     const ctx: HTMLCanvasElement = <any>document.getElementById("test-canvas");
     ctx.onclick = clickHandler;
+    var datasetsData = getDatasetsData();
+    console.log("datasetsData", datasetsData)
     _chart = new Chart(ctx, {
         type: 'scatter',
         data: {
             datasets: [
                 {
-                    label: "main",
-                    data: props.dataContainer.points.map(point => ({ y: point.y, x: point.x })),
+                    label: "selected",
+                    data: datasetsData.selected,
                     pointRadius: 5,
                     pointHoverRadius: 8,
-                    backgroundColor: function (context: ScriptableContext<'line'>) {
-                        if (selectedIndexes.has(context.dataIndex)) {
-                            return "#00bb4f";
-                        }
-                        if (props.highlightedIndexes.includes(context.dataIndex)) {
-                            return "#c7c100"
-                        }
-                        return "#0077fd";
-                    }
+                    backgroundColor: "#00bb4f",
+                },
+                {
+                    label: "highlighted",
+                    data: datasetsData.highlighted,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    backgroundColor: "#c7c100BB"
+                },
+                {
+                    label: "main",
+                    data: datasetsData.main,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    backgroundColor: "#0077fdBB"
                 }
             ]
         },
         options: {
+            responsive: true,
+            maintainAspectRatio: false,
             animation: {
                 duration: 0
             },
@@ -170,7 +250,7 @@ function _tryRenderChart() {
 </script>
 
 <template>
-    <canvas id="test-canvas" role="img" style="max-height: 90vh;"></canvas>
+    <canvas id="test-canvas" role="img" style="width: 100%; height: 100%;"></canvas>
 </template>
 
 <style scoped></style>

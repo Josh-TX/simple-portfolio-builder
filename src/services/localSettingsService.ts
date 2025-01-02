@@ -1,4 +1,4 @@
-import { LineChartDataInputs, ScatterplotAxisInputs } from "../models/models";
+import { LineChartDataInputs, ScatterplotAxisInputs, StatInputs } from "../models/models";
 
 export type LocalSettings = { 
     returnDays?: number | undefined,
@@ -13,6 +13,7 @@ export type LocalSettings = {
     lineChartInputs2?: LineChartDataInputs | undefined
     scatterplotAxisInputsX?: ScatterplotAxisInputs | undefined
     scatterplotAxisInputsY?: ScatterplotAxisInputs | undefined
+    statInputs?: StatInputs | undefined
 }
 
 class LocalSettingsService {

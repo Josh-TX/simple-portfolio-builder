@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Chart, ChartDataset, registerables, ScriptableLineSegmentContext } from 'chart.js';
+import { Chart, ChartDataset, registerables } from 'chart.js';
 import { onMounted, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { LineChartMode, LineData, LineDataContainer } from '../models/models';
@@ -40,7 +40,7 @@ function _tryRenderChart() {
         '#ffff35', //yellow
         ];
     var logModes: LineChartMode[] = ["logReturns", "logLosses"];
-    var priceModes: LineChartMode[] = ["price", "portfolioHoldings", "maxDrawdown"];
+    var priceModes: LineChartMode[] = ["price", "maxDrawdown"];
     if (lineDatas.length > 1 && lineDatas.some(z => logModes.includes(z.type)) && lineDatas.some(z => z.type == "returns")){
         var lowestVal0 = Math.min(...lineDatas[0].data.flat().filter(x => x !== null) as number[]);
         var lowestVal1 =  Math.min(...lineDatas[1].data.flat().filter(x => x !== null) as number[]);
@@ -65,26 +65,18 @@ function _tryRenderChart() {
         var is2nd = lineData != lineDatas[0];
         for (var i = 0; i < props.dataContainer.seriesLabels.length; i++) {
             var label = props.dataContainer.seriesLabels[i];
-            var color = label == "portfolio" ? "#FFFFFF" : colors[i % colors.length]
-            var segmentCallback: any = undefined;
-            if (lineData.rebalanceIndexes){
-                var rebalanceIndexSet = new Set(lineData.rebalanceIndexes);
-                segmentCallback = {
-                    borderColor: (ctx: ScriptableLineSegmentContext) => rebalanceIndexSet.has(ctx.p0DataIndex ) ? "white" : undefined
-                };
-            }
+            var color = colors[i % colors.length]
             datasets.push({
                 label: label,
                 data: <number[]>lineData.data[i],
                 borderWidth: 2,
                 pointRadius: 0,
-                stack: lineData.type == "portfolioHoldings" ? "p" : i.toString(),
+                stack: i.toString(),
                 yAxisID: !is2nd ? 'y1' : yAxis2,
                 borderColor: color,
                 backgroundColor: color + "11",
-                fill: lineData.type == "portfolioHoldings" ? (i == 0 ? 'origin' : '-1') : false,
+                fill: false,
                 borderDash: is2nd ? [1,2] : undefined,
-                segment: segmentCallback
             })
         }
     }
@@ -93,7 +85,7 @@ function _tryRenderChart() {
         secondScale.y2 = {
             ticks: {},
             display: true,
-            stacked: props.dataContainer.LineDatas[1].type == "portfolioHoldings" ? true : false,
+            stacked: false,
             position: 'right',
             title: {
                 display: true,
@@ -122,7 +114,7 @@ function _tryRenderChart() {
                 y1: {
                     ticks: {},
                     display: true,
-                    stacked: (props.dataContainer.LineDatas[0].type == "portfolioHoldings" || props.dataContainer.LineDatas[1].type == "portfolioHoldings") ? true : false,
+                    stacked: false,
                     position: 'left',
                     title: {
                         display: true,

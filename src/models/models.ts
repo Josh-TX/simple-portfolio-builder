@@ -2,7 +2,7 @@ export type TickerInputs = {
     tickers: string,
 }
 
-export type LineChartMode = "price" | "returns" | "logReturns" | "portfolioHoldings" | "none" | "maxDrawdown" | "logLosses"
+export type LineChartMode = "price" | "returns" | "logReturns" | "none" | "maxDrawdown" | "logLosses"
 
 export type LineChartDataInputs = {
     mode: LineChartMode,
@@ -10,18 +10,23 @@ export type LineChartDataInputs = {
     smoothDays: number,
     equalPrice: boolean,
     extrapolateDays: number,
-    showRebalance: boolean,
     drawdownDays: number,
 }
 
-export type ScatterplotAxisMode = "return" | "riskAdjReturn" | "logReturnSD" | "logLossRMS" | "maxDrawdown"
+export type StatInputs = {
+    returnDays: number,
+    smoothDays: number,
+    extrapolateDays: number,
+    drawdownDays: number,
+}
+
+export type ScatterplotAxisMode = "return" | "logReturnSD" | "logLossRMS" | "maxDrawdown"
 
 export type ScatterplotAxisInputs= {
     mode: ScatterplotAxisMode,
     returnDays: number,
     smoothDays: number,
-    drawdownDays: number,
-    riskAdjSD: number
+    drawdownDays: number
 }
 
 export type ScatterplotDataContainer = {
@@ -37,13 +42,13 @@ export type ScatterplotPoint = {
     y: number
 }
 
-export type DayVal = {
-    dayNumber: number,
-    val: number
-}
+export type FundDataType = "price" | "afr" | "logafr";
 
-export type NullableColumn = (number | null)[];
-export type Column = number[];
+export type FundData = {
+    startDayNumber: number,
+    dataType: FundDataType
+    values: Float32Array
+}
 
 export type GetWeightsRequest = {
     tickers: string[];
@@ -52,7 +57,7 @@ export type GetWeightsRequest = {
 }
 
 export type CalculatePointsRequest = {
-    pricess: DayVal[][];
+    fundDatas: FundData[];
     weightss: number[][];
     axisInputsX: ScatterplotAxisInputs,
     axisInputsY: ScatterplotAxisInputs
@@ -103,10 +108,8 @@ export type LineDataContainer = {
 }
 export type LineData = {
     type: LineChartMode,
-    data: Row<number | null>[], //outer array's length should match seriesLabels.length, innerArray should match timestamps.length
+    data: (number | null)[][], //outer array's length should match seriesLabels.length, innerArray should match dayNumbers.length
     labelCallback: (val: number | null) => string,
     yAxisTitle: string,
-    rebalanceIndexes: number[] | null,
 }
 
-export type Row<T> = T[];

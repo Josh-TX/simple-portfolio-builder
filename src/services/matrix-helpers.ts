@@ -1,4 +1,4 @@
-import * as MathHelpers from "./math-helpers";
+import { FundData } from "../models/models";
 
 
 export function transpose<T>(matrix: T[][]): T[][] {
@@ -88,13 +88,83 @@ export function generateData(
     return transformedSamples;
 }
 
-export function getCorrelation(x: number[], y: number[]): number {
+// export function getCorrelation(x: number[], y: number[]): number {
+//     const n = x.length;
+//     const meanX = MathHelpers.getSum(x) / n;
+//     const meanY = MathHelpers.getSum(y) / n;
+//     const covariance = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0) / n;
+//     const varianceX = x.reduce((sum, xi) => sum + (xi - meanX) ** 2, 0) / n;
+//     const varianceY = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0) / n;
+//     const denominator = Math.sqrt(varianceX * varianceY);
+//     return denominator === 0 ? 0 : covariance / denominator;
+// }
+
+export function getCorrelation(x: Float32Array, y: Float32Array): number {
     const n = x.length;
-    const meanX = MathHelpers.getSum(x) / n;
-    const meanY = MathHelpers.getSum(y) / n;
-    const covariance = x.reduce((sum, xi, i) => sum + (xi - meanX) * (y[i] - meanY), 0) / n;
-    const varianceX = x.reduce((sum, xi) => sum + (xi - meanX) ** 2, 0) / n;
-    const varianceY = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0) / n;
-    const denominator = Math.sqrt(varianceX * varianceY);
-    return denominator === 0 ? 0 : covariance / denominator;
+    if (n !== y.length || n === 0) {
+        throw new Error("x and y must be same length");
+    }
+    var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+    for (let i = 0; i < n; i++) {
+        sumX += x[i];
+        sumY += y[i];
+        sumXY += x[i] * y[i];
+        sumX2 += x[i] * x[i];
+        sumY2 += y[i] * y[i];
+    }
+    var meanX = sumX / n;
+    var meanY = sumY / n;
+    var numerator = sumXY - n * meanX * meanY;
+    var denominator = Math.sqrt(
+        (sumX2 - n * meanX * meanX) * (sumY2 - n * meanY * meanY)
+    );
+    if (denominator === 0) {
+        return 0;
+    }
+    return numerator / denominator;
+}
+
+export function getCosineSimilarity(x: Float32Array, y: Float32Array): number {
+    const n = x.length;
+    if (n !== y.length || n === 0) {
+        throw new Error("x and y must be same length");
+    }
+    var sumXY = 0, sumX2 = 0, sumY2 = 0;
+    for (let i = 0; i < n; i++) {
+        sumXY += x[i] * y[i];
+        sumX2 += x[i] * x[i];
+        sumY2 += y[i] * y[i];
+    }
+    if (sumX2 === 0 || sumY2 === 0) {
+        return 0;
+    }
+    return sumXY / Math.sqrt(sumX2 * sumY2);
+}
+
+export function getCorrelationMatrix(fundDatas: FundData[], cosine: boolean = false): number[][]{
+    if (!fundDatas.length){
+        return []
+    }
+    var matrixSize = fundDatas.length
+    var correlationMatrix: number[][] = Array.from({ length: matrixSize }, () => Array(matrixSize).fill(0));
+    for (var i = 0; i < matrixSize; i++) {
+        for (var j = i; j < matrixSize; j++) {
+            if (i === j) {
+                correlationMatrix[i][j] = 1;
+            } else {
+                //get intersection of fundDatas[i] and fundDatas[j]
+                var startDayNumber = Math.max(fundDatas[i].startDayNumber, fundDatas[j].startDayNumber);
+                var endDayNumber = Math.min(fundDatas[i].startDayNumber + fundDatas[i].values.length, fundDatas[j].startDayNumber + fundDatas[j].values.length);
+                var len = (endDayNumber - startDayNumber)
+                var iStartIndex = startDayNumber - fundDatas[i].startDayNumber;
+                var ivalues = fundDatas[i].values.subarray(iStartIndex, iStartIndex + len);
+                var jStartIndex = startDayNumber - fundDatas[j].startDayNumber;
+                var jvalues = fundDatas[j].values.subarray(jStartIndex, jStartIndex + len);
+                var r = cosine ? getCosineSimilarity(ivalues, jvalues) : getCorrelation(ivalues, jvalues);
+                correlationMatrix[i][j] = r;
+                correlationMatrix[j][i] = r;
+            }
+        }
+    }
+    return correlationMatrix;
 }

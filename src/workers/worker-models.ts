@@ -19,7 +19,7 @@ export type WorkerInputData = any;
 export type WorkerOutputData = any
 
 export interface AllWorkerOperations {
-    getWeightss(input: GetWeightsRequest): Promise<number[][]>
+    getWeightss(input: GetWeightsRequest): Promise<number[][] | null>
     calculatePoints(input: CalculatePointsRequest): Promise<ScatterplotPoint[]>
 }
 

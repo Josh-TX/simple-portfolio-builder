@@ -1,3 +1,5 @@
+import { FundData } from "../models/models";
+
 class Database<T>{
     private dbName: string;
     private storeName: string;
@@ -83,4 +85,4 @@ class Database<T>{
         });
     }
 }
-export var pricesDB = new Database<any>("main", "ticker-prices");
+export var pricesDB = new Database<FundData>("main", "ticker-prices");
