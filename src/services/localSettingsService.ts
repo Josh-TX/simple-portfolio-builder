@@ -1,18 +1,17 @@
 import { LineChartDataInputs, ScatterplotAxisInputs, StatInputs } from "../models/models";
 
 export type LocalSettings = { 
+    tickers?: string | undefined,
     returnDays?: number | undefined,
     smoothDays?: number | undefined,
-    syncDays?: boolean | undefined,
-    tickers?: string | undefined,
-    filterDays?: string | undefined,
-    segmentCount?: number | undefined
-    filterExpr?: string | undefined
-    highlightExpr?: string | undefined
-    lineChartInputs1?: LineChartDataInputs | undefined
-    lineChartInputs2?: LineChartDataInputs | undefined
-    scatterplotAxisInputsX?: ScatterplotAxisInputs | undefined
-    scatterplotAxisInputsY?: ScatterplotAxisInputs | undefined
+    renderFrequency?: number | undefined,
+    segmentCount?: number | undefined,
+    filterExpr?: string | undefined,
+    highlightExpr?: string | undefined,
+    lineChartInputs1?: LineChartDataInputs | undefined,
+    lineChartInputs2?: LineChartDataInputs | undefined,
+    scatterplotAxisInputsX?: ScatterplotAxisInputs | undefined,
+    scatterplotAxisInputsY?: ScatterplotAxisInputs | undefined,
     statInputs?: StatInputs | undefined
 }
 

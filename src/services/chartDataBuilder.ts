@@ -5,7 +5,8 @@ export function getLineDataContainer(
         tickers: string[], 
         fundDatas: FundData[], 
         lineInputs1: LineChartDataInputs, 
-        lineInputs2: LineChartDataInputs
+        lineInputs2: LineChartDataInputs,
+        renderFrequency: number
     ): LineDataContainer{
 
     var seriesLabels = [...tickers];
@@ -56,7 +57,7 @@ export function getLineDataContainer(
     var fundDatas1 = getDataFunc(lineInputs1);
     var fundDatas2 = getDataFunc(lineInputs2);
     var nonNullFundDatas = [...fundDatas1, ...fundDatas2].filter(z => !!z) as FundData[];
-    var dayNumbers = PriceHelpers.everyNthItem(PriceHelpers.getUnionDayNumbers(nonNullFundDatas), 3);
+    var dayNumbers = PriceHelpers.everyNthItem(PriceHelpers.getUnionDayNumbers(nonNullFundDatas), renderFrequency);
     var output: LineDataContainer = {
         dayNumbers: dayNumbers,
         seriesLabels: seriesLabels,

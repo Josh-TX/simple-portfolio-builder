@@ -4,7 +4,7 @@ import LineChart from './LineChart.vue';
 import TickerInputComponent from './TickerInputComponent.vue';
 import LineChartInputComponent from './LineChartInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
-import { onMounted, reactive, Reactive, Ref, ref, ShallowRef, watch } from 'vue'
+import { reactive, Reactive, Ref, ref, ShallowRef, watch } from 'vue'
 import { debounce } from '../services/debouncer';
 import { LineChartDataInputs, LineDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
@@ -13,6 +13,7 @@ import { localSettingsService } from '../services/localSettingsService';
 
 var lineDataContainer: ShallowRef<LineDataContainer | null> = ref(null);
 var tickerArray: Ref<string[] | null> = ref(null);
+var renderFrequency = ref(localSettingsService.getValue("renderFrequency") || 7);
 
 var lineInputs1: Reactive<LineChartDataInputs> = reactive(localSettingsService.getValue("lineChartInputs1") || { mode: "price", equalPrice: true, returnDays: 30, smoothDays: 5, extrapolateDays: 365, drawdownDays: 1});
 var lineInputs2: Reactive<LineChartDataInputs> = reactive(localSettingsService.getValue("lineChartInputs2") || { mode: "logReturns", equalPrice: true, returnDays: 30, smoothDays: 5, extrapolateDays: 365, drawdownDays: 1});
@@ -22,7 +23,7 @@ async function updateData(){
     tickerArray.value = tempTickerArray;
     var priceHistoryPromises = tempTickerArray.map(z => getPriceHistory(z));
     var fundDatas = await Promise.all(priceHistoryPromises);
-    lineDataContainer.value = getLineDataContainer(tempTickerArray, fundDatas, lineInputs1, lineInputs2)
+    lineDataContainer.value = getLineDataContainer(tempTickerArray, fundDatas, lineInputs1, lineInputs2, renderFrequency.value)
 }
 
 watch(lineInputs1, () => {
@@ -33,16 +34,16 @@ watch(lineInputs2, () => {
     debounce("a", 500, () => updateData());
     localSettingsService.setValue("lineChartInputs2", lineInputs2)
 });
+watch(renderFrequency, () => {
+    debounce("a", 500, () => updateData());
+    localSettingsService.setValue("renderFrequency", renderFrequency.value)
+});
 
 watch(() => tickerInputs.tickers, () => {
     debounce("a", 1000, () => updateData());
 });
 
 updateData();
-
-onMounted(() => {
-    console.log("line page mounted")
-})
 </script>
 
 <template>
@@ -59,34 +60,20 @@ onMounted(() => {
             </div>
         </div>
         <div style="flex: 1 1 0; position: relative; min-height: 350px;" >
+            <div style="position: absolute; top: 2px; right: 0;">
+                render 
+                <select v-model="renderFrequency">
+                    <option :value="1">every day</option>
+                    <option :value="2">every other day</option>
+                    <option :value="3">every 3rd day</option>
+                    <option :value="7">every 7th day</option>
+                    <option :value="14">every 14th day</option>
+                </select>
+            </div>
             <LineChart :dataContainer="lineDataContainer"/> 
         </div>
     </div>
-    <!-- <div style="display: flex; gap: 48px;">
-        <table v-if="averages && sds">
-            <tr>
-                <td style="padding: 0 12px;">Ticker</td>
-                <td style="padding: 0 12px;">Avg return</td>
-                <td style="padding: 0 12px;">Std Dev</td>
-            </tr>
-            <tr v-for="(ticker, index) in tickerArray">
-                <td style="padding: 0 12px;">{{ ticker }}</td>
-                <td style="padding: 0 12px;">{{ averages![index] }}</td>
-                <td style="padding: 0 12px;">{{ sds![index] }}</td>
-            </tr>
-        </table>
-        <table v-if="correlationMatrix">
-            <tr>
-                <td style="padding: 0 4px;"></td>
-                <td style="padding: 0 4px;" v-for="ticker in tickerArray">{{ ticker }}</td>
-            </tr>
-            <tr v-for="(ticker, index) in tickerArray">
-                <td style="padding: 0 4px;">{{ ticker }}</td>
-                <td style="padding: 0 4px;" v-for="r in correlationMatrix![index]">{{ roundTo2(r) }}</td>
-            </tr>
-        </table>
-    </div> -->
-
 </template>
 
-<style scoped></style>
+<style scoped>
+</style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Chart, ChartDataset, registerables } from 'chart.js';
-import { onMounted, watch } from 'vue'
+import { onMounted, toRaw, watch } from 'vue'
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { LineChartMode, LineData, LineDataContainer } from '../models/models';
 
@@ -10,6 +10,7 @@ Chart.register(...registerables);
 var props = defineProps<{ dataContainer: LineDataContainer | null }>();
 var lineDatas: LineData[] = [];
 var _chart: Chart<"line", number[], string> | null = null;
+var renderedOnce = false;
 
 watch(() => props.dataContainer, async () => {
     if (props.dataContainer) {
@@ -26,7 +27,7 @@ function _tryRenderChart() {
     if (!props.dataContainer) {
         return;
     }
-    lineDatas =  props.dataContainer.LineDatas.map(z => ({...z}));
+    lineDatas = toRaw(props.dataContainer.LineDatas);
     var dateStrings = props.dataContainer.dayNumbers.map(z => new Date(z * 86400000).toISOString().split('T')[0]);
     var datasets: ChartDataset<"line", number[]>[] = [];
     var colors = [            
@@ -98,6 +99,13 @@ function _tryRenderChart() {
     }
     if (_chart) {
         _chart.destroy();
+    }
+    var datasetsData: any[] = [];
+    if (!renderedOnce){
+        //for the first render, remoce the data from the datasets. We'll add it later
+        //this is needed for performance reasons, since the new Chart() construction blocks the main thread
+        datasetsData = datasets.map(z => z.data);
+        datasets.forEach(z => z.data = []);
     }
     _chart = new Chart("line-chart-canvas", {
         type: 'line',
@@ -212,6 +220,16 @@ function _tryRenderChart() {
             }
         }
     })
+    if (!renderedOnce){
+        //since we removed the data from the datasets, we need to re-add it
+        renderedOnce = true;
+        setTimeout(() => {
+            for (var i = 0; i < _chart!.data.datasets.length; i++){
+                _chart!.data.datasets[i].data = datasetsData[i];
+            }
+            _chart?.update();
+        })
+    }
 }
 
 </script>

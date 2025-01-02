@@ -175,7 +175,7 @@ export function matchDataToDayNumbers(dayNumbers: number[], fundData: FundData |
     }
     var output: (number | null)[] = [];
     for (var dayNumber of dayNumbers) {
-        if (dayNumber >= fundData.startDayNumber && dayNumber <= (fundData.startDayNumber + fundData.values.length)){
+        if (dayNumber >= fundData.startDayNumber && dayNumber <= (fundData.startDayNumber + fundData.values.length - 1)){
             output.push(fundData.values[dayNumber - fundData.startDayNumber]);
         } else {
             output.push(null);
