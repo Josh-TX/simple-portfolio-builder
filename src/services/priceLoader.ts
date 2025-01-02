@@ -61,9 +61,8 @@ function convertToFundData(prices: number[], dayNumbers: number[]): FundData {
 }
 
 function getMoneyMarket(): FundData {
-    var prices = moneyMarketPrices.map(z => z[1]);
     var dayNumbers = moneyMarketPrices.map(z => z[0]);
-    //maybe later I'll restructure moneyMarketPrices to better adapt to the new FundData model
+    var prices = moneyMarketPrices.map(z => z[1]);
     return convertToFundData(prices, dayNumbers);
 }
 

@@ -84,7 +84,9 @@ function _tryRenderChart() {
     var secondScale: any = {};
     if (yAxis2 == "y2"){
         secondScale.y2 = {
-            ticks: {},
+            ticks: {
+                callback: props.dataContainer.LineDatas[1].labelCallback
+            },
             display: true,
             stacked: false,
             position: 'right',
@@ -120,7 +122,9 @@ function _tryRenderChart() {
             maintainAspectRatio: false,
             scales: {
                 y1: {
-                    ticks: {},
+                    ticks: {
+                        callback: props.dataContainer.LineDatas[0].labelCallback
+                    },
                     display: true,
                     stacked: false,
                     position: 'left',
@@ -209,8 +213,9 @@ function _tryRenderChart() {
                             }
                             var label = props.dataContainer!.seriesLabels[datasetIndex];
                             if (props.dataContainer!.LineDatas.length > 1){
+                                var data1 =  props.dataContainer!.LineDatas[0].data[datasetIndex][tooltipItem.dataIndex];
                                 var data2 =  props.dataContainer!.LineDatas[1].data[datasetIndex][tooltipItem.dataIndex];
-                                return label + ": " + props.dataContainer!.LineDatas[0].labelCallback(tooltipItem.parsed.y) 
+                                return label + ": " + props.dataContainer!.LineDatas[0].labelCallback(data1) 
                                     + "  |  " + props.dataContainer!.LineDatas[1].labelCallback(data2)
                             }
                             return label + ": " + props.dataContainer!.LineDatas[0]!.labelCallback(tooltipItem.parsed.y);

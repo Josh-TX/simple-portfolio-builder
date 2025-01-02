@@ -8,7 +8,7 @@ import { reactive, Reactive, Ref, ref, ShallowRef, watch } from 'vue'
 import { debounce } from '../services/debouncer';
 import { LineChartDataInputs, LineDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
-import { getLineDataContainer } from '../services/chartDataBuilder'
+import { getLineDataContainer } from '../services/lineChartBuilder'
 import { localSettingsService } from '../services/localSettingsService';
 
 var lineDataContainer: ShallowRef<LineDataContainer | null> = ref(null);

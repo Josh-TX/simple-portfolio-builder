@@ -58,19 +58,21 @@ export function getLineDataContainer(
     var fundDatas2 = getDataFunc(lineInputs2);
     var nonNullFundDatas = [...fundDatas1, ...fundDatas2].filter(z => !!z) as FundData[];
     var dayNumbers = PriceHelpers.everyNthItem(PriceHelpers.getUnionDayNumbers(nonNullFundDatas), renderFrequency);
+    var labelCallback = (z: number | null) => z != null ? z.toFixed(2) : "";
+    var returnLabelCallback = (z: number | null) => z != null ? ( Math.round((z-1)*10000)/100 ) + "%" : "";
     var output: LineDataContainer = {
         dayNumbers: dayNumbers,
         seriesLabels: seriesLabels,
         LineDatas: [
             {
                 data: fundDatas1.map(fundData => PriceHelpers.matchDataToDayNumbers(dayNumbers, fundData)),
-                labelCallback: z => z != null ? z.toFixed(2) : "",
+                labelCallback: lineInputs1.mode == "returns" ? returnLabelCallback : labelCallback,
                 yAxisTitle: lineInputs1.mode,
                 type: lineInputs1.mode
             },
             {
                 data: fundDatas2.map(fundData => PriceHelpers.matchDataToDayNumbers(dayNumbers, fundData)),
-                labelCallback: z => z != null ? z.toFixed(2) : "",
+                labelCallback: lineInputs2.mode == "returns" ? returnLabelCallback : labelCallback,
                 yAxisTitle: lineInputs2.mode,
                 type: lineInputs2.mode
             },
