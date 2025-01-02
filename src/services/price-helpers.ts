@@ -122,29 +122,31 @@ export function getSmoothData(fundData: FundData, smoothDays: number): FundData 
     var oldValues = fundData.values
     var newValues = new Float32Array(oldValues.length);
     var sum = 0;
+    var count = 0;
     var sideDays = Math.floor(smoothDays / 2);
     smoothDays = sideDays * 2 + 1;//in effect, smoothDays is just rounded down to the nearest odd number
-
-    //looks like this has the looping effect? not sure I wanna keep it that way. 
-    var leftIndex = oldValues.length - sideDays;
-    for (var i = leftIndex; i < oldValues.length; i++) {
-        sum += oldValues[i];
-    }
-    leftIndex = leftIndex % oldValues.length;
+    var leftIndex = 0;;
     var rightIndex = sideDays;
     for (var i = 0; i <= rightIndex; i++) {
         sum += oldValues[i];
+        count++;
     }
     for (var i = 0; i < oldValues.length - 1; i++) {
-        newValues[i] = sum / smoothDays
-        sum -= oldValues[leftIndex];
-        leftIndex++;
-        leftIndex = leftIndex % oldValues.length;
-        rightIndex++;
-        rightIndex = rightIndex % oldValues.length;
-        sum += oldValues[rightIndex];
+        newValues[i] = sum / count
+        if (leftIndex == i - sideDays){
+            sum -= oldValues[leftIndex];
+            leftIndex++;
+        } else {
+            count++;
+        }
+        if (rightIndex == oldValues.length - 1){
+            count--;
+        } else {
+            rightIndex++;
+            sum += oldValues[rightIndex];
+        }
     }
-    newValues[newValues.length - 1] = sum / smoothDays
+    newValues[newValues.length - 1] = sum / count
     return {
         startDayNumber: fundData.startDayNumber,
         dataType: fundData.dataType,

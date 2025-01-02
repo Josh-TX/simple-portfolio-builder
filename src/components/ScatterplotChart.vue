@@ -225,7 +225,7 @@ function _tryRenderChart() {
                     callbacks: {
                         label: function (context) {
                             var label = "";
-                            var weights = props.dataContainer!.points[context.dataIndex].weights;
+                            var weights = _points[context.datasetIndex][context.dataIndex].weights;
                             var series = props.dataContainer!.seriesLabels;
                             for (var i = 0; i < props.dataContainer!.seriesLabels.length; i++){
                                 if (weights[i] > 0){
