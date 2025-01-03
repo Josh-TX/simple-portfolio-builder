@@ -11,14 +11,15 @@ export async function getScatterplotDataContainer(
         filterExpr: string,
         axisInputsX: ScatterplotAxisInputs,
         axisInputsY: ScatterplotAxisInputs,
-
+        includePure: boolean
     ): Promise<ScatterplotDataContainer>{
     var fundDatas = PriceHelpers.getIntersectionDayPricess(fundDatas)
     var weightss = await workerCaller.getWeightss(
     {
         tickers: tickers,
         segmentCount: segmentCount,
-        filterExpr: filterExpr
+        filterExpr: filterExpr,
+        includePure: includePure
     });
     if (weightss == null){
         alert("The current settings would calculate way too many portfolios. Try reducing the segment count, removing some tickers, or adding a filter.");

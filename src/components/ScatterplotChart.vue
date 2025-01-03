@@ -75,15 +75,11 @@ function clickHandler(event: MouseEvent) {
 
 }
 
-type ChartPoint = {
-    x: number, y: number
-}
-
 function updateDatasetData(){
-    var datasetsData = getDatasetsData();
-    _chart!.data.datasets[0].data = datasetsData.selected;
-    _chart!.data.datasets[1].data = datasetsData.highlighted;
-    _chart!.data.datasets[2].data = datasetsData.main;
+    setupPoints();
+    for(var i = 0; i <=3; i++){
+        _chart!.data.datasets[i].data = _points[i].map(z => ({x: z.x, y: z.y}));
+    }
     _chart!.update();
 }
 
@@ -106,31 +102,22 @@ function getMatchIndexOf(selectedPointWeights: number[][], weights: number[]): n
     return -1;
 }
 
-function getDatasetsData(): {main: ChartPoint[], highlighted: ChartPoint[], selected: ChartPoint[]}{
-    var main: ChartPoint[] = [];
-    var highlighted: ChartPoint[] = [];
-    var selected: ChartPoint[] = [];
-    _points = [[],[],[]];
+function setupPoints() {
+    _points = [[],[],[],[]];
     var remainingSelectedPointWeights = [...selectedPointWeights]
     for (var i = 0; i < props.dataContainer!.points.length; i++){
         var point = toRaw(props.dataContainer!.points[i]);
         var selectedIndex = getMatchIndexOf(remainingSelectedPointWeights, point.weights)
         if (selectedIndex >= 0){
-            selected.push({x: point.x, y: point.y});
             _points[0].push(point);
             remainingSelectedPointWeights.splice(selectedIndex, 1)
         } else if (props.highlightedIndexes.includes(i)){
-            highlighted.push({x: point.x, y: point.y});
             _points[1].push(point);
-        } else {
-            main.push({x: point.x, y: point.y});
+        } else if (point.weights.filter(z => z).length == 1){
             _points[2].push(point);
+        }else {
+            _points[3].push(point);
         }
-    }
-    return {
-        main,
-        highlighted,
-        selected
     }
 }
 
@@ -143,32 +130,38 @@ function _tryRenderChart() {
     }
     const ctx: HTMLCanvasElement = <any>document.getElementById("test-canvas");
     ctx.onclick = clickHandler;
-    var datasetsData = getDatasetsData();
-    console.log("datasetsData", datasetsData)
+    setupPoints();
     _chart = new Chart(ctx, {
         type: 'scatter',
         data: {
             datasets: [
                 {
                     label: "selected",
-                    data: datasetsData.selected,
+                    data: _points[0].map(z => ({x: z.x, y: z.y})),
                     pointRadius: 5,
                     pointHoverRadius: 8,
                     backgroundColor: "#00bb4f",
                 },
                 {
                     label: "highlighted",
-                    data: datasetsData.highlighted,
+                    data: _points[1].map(z => ({x: z.x, y: z.y})),
                     pointRadius: 5,
                     pointHoverRadius: 8,
-                    backgroundColor: "#c7c100BB"
+                    backgroundColor: "#c7c100bb"
+                },
+                {
+                    label: "pure",
+                    data: _points[2].map(z => ({x: z.x, y: z.y})),
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    backgroundColor: "#7744ff"
                 },
                 {
                     label: "main",
-                    data: datasetsData.main,
+                    data: _points[3].map(z => ({x: z.x, y: z.y})),
                     pointRadius: 5,
                     pointHoverRadius: 8,
-                    backgroundColor: "#0077fdBB"
+                    backgroundColor: "#0077fdbb"
                 }
             ]
         },

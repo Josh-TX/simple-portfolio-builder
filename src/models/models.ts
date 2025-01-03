@@ -54,6 +54,7 @@ export type GetWeightsRequest = {
     tickers: string[];
     segmentCount: number;
     filterExpr: string;
+    includePure: boolean;
 }
 
 export type CalculatePointsRequest = {

@@ -6,13 +6,15 @@ export class PortfolioBuilder{
     private _tickers: string[] = [];
     private _filterExpr: Expression | null = null;
     private _loggedError: boolean = false;
+    private _includePure: boolean = false;
     constructor(){
 
     }
 
-    getWeights(tickers: string[], segmentCount: number, filterExpr: string): number[][] | null{
+    getWeights(tickers: string[], segmentCount: number, filterExpr: string, includePure: boolean): number[][] | null{
         this._tickers = tickers.map(z => z.toLowerCase()).map(z => z == "$" ? "moneymarket" : z);
         this._filterExpr = null;
+        this._includePure = includePure;
         if (filterExpr){
             //replace `=` with `==`, `&` or `&&` with ` and `, `|` or `||` with ` or `
             filterExpr = filterExpr.toLowerCase().replace(/(?<![<>!=])=(?![=])/g, '==').replace(/&&?/g, ' and ').replace(/\|\|?/g, ' or ').replace("$", ' moneymarket ');
@@ -30,7 +32,7 @@ export class PortfolioBuilder{
 
     private getWeightPermutations(startIndex: number, incompleteWeights: number[], remainingSegments: number): number[][]{
         if (remainingSegments == 0){
-            if (this._filterExpr){
+            if (this._filterExpr && (!this._includePure || incompleteWeights.filter(z => z).length != 1)){
                 var exprData: {[ticker: string]: number} = {};
                 for (var i = 0; i < incompleteWeights.length; i++){
                     exprData[this._tickers[i]] = incompleteWeights[i];

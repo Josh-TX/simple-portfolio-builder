@@ -20,6 +20,7 @@ var highlightExpr = ref(localSettingsService.getValue("highlightExpr") || "");
 var dataContainer = ref<ScatterplotDataContainer | null>(null);
 var newestTicker = ref<string | null>(null);
 var newestTickerStart = ref<string | null>(null);
+var includePure = ref<boolean>(true);
 
 var axisInputsX: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsX") || { mode: "return", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
 var axisInputsY: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsY") || { mode: "logReturnSD", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
@@ -53,7 +54,7 @@ async function generate() {
     var newestIndex = fundDatas.reduce((index, fundData, i) => fundData.startDayNumber > fundDatas[index].startDayNumber ? i : index, 0);
     newestTicker.value = tickerArray[newestIndex];
     newestTickerStart.value = new Date(fundDatas[newestIndex].startDayNumber * 86400000).toISOString().split('T')[0];
-    dataContainer.value =  await getScatterplotDataContainer(tickerArray, fundDatas, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY);
+    dataContainer.value =  await getScatterplotDataContainer(tickerArray, fundDatas, segmentCount.value, filterExpr.value, axisInputsX, axisInputsY, includePure.value);
     updateHighlightedIndexes();
 }
 
@@ -192,17 +193,29 @@ async function pointClicked(summary: PortfolioSummary | null) {
                     <option :value="20">20 (5% per segment)</option>
                 </select>
             </div>
+            <div>
+                <label>Earliest Start Date</label>
+                <br>
+                <input type="date" style="width: 100%;">
+            </div>
+            <div class="invisible" :class="{'visible': !!filterExpr}">
+                <label>Include pure portfolios</label>
+                <br>
+                <input type="checkbox" v-model="includePure" style="margin-left: 0;">
+            </div>
             <div style="flex: 1; padding-right: 8px;">
                 <label>Filter Portfolios by Expression</label>
                 <br>
                 <input v-model="filterExpr" style="width: 100%">
             </div>
+            <button @click="generate">Generate</button>
+        </div>
+        <div>
             <div style="flex: 0.5; padding-right: 8px;">
                 <label>Highlight Portfolios by Expression</label>
                 <br>
                 <input v-model="highlightExpr" style="width: 100%">
             </div>
-            <button @click="generate">Generate</button>
         </div>
         <div class="scatterplot-container">
             <ScatterplotChart :dataContainer="dataContainer" :highlightedIndexes="highlightedIndexes" @point-clicked="pointClicked">
@@ -225,22 +238,6 @@ async function pointClicked(summary: PortfolioSummary | null) {
             </div>
         </div>
     </div>
-
-    <!-- <div v-if="selectedSummary && selectedPortfolio">you chose {{ selectedSummary.weights }}
-        <div style="display: flex; gap: 16px;">
-            <div style="flex: 1; padding-right: 8px;" >
-                <label>Selected Portfolio Name</label>
-                <br>
-                <input v-model="selectedPortfolio!.name" style="width: 100%">
-            </div>
-            <button @click="simulatePortfolio()">Simulate Porfolio</button>
-            <button @click="simulatePortfolio()">View Simulations</button>
-        </div>
-        <div style="height: 50vh; position: relative; width: 100%;">
-            <LineChart :chartData="selectedChartData" />
-        </div>
-    </div> -->
-    <!-- <div v-else="!scatterplotInput">No point selected. Click on a point to select it</div> -->
 </template>
 
 <style scoped>
@@ -310,5 +307,15 @@ async function pointClicked(summary: PortfolioSummary | null) {
     top: 0;
     right: 0;
     opacity: 0.6;
+}
+
+.invisible{
+    opacity: 0;
+    user-select: none;
+    transition: opacity 0.15s;
+}
+.visible{
+    opacity: 1;
+    user-select: inherit;
 }
 </style>

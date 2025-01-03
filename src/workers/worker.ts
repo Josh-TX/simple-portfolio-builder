@@ -9,7 +9,7 @@ import * as MathHelpers from '../services/math-helpers';
 var operations: AllWorkerOperations = {
     async getWeightss(input: GetWeightsRequest): Promise<number[][] | null> {
         let builder = new PortfolioBuilder();
-        var weights = builder.getWeights(input.tickers, input.segmentCount, input.filterExpr);
+        var weights = builder.getWeights(input.tickers, input.segmentCount, input.filterExpr, input.includePure);
         return weights;
     },
 
