@@ -11,7 +11,7 @@ Chart.register(...registerables);
 var props = defineProps<{ dataContainer: ScatterplotDataContainer | null, highlightedIndexes: number[] }>();
 var emits = defineEmits(['point-clicked'])
 var _chart: Chart<"scatter", ScatterDataPoint[], string> | null = null;
-var selectedPointWeights: number[][] = [];
+var selectedWeightss: number[][] = [];
 var selectedPointTickers: string[] = [];
 
 var _points: ScatterplotPoint[][] = [];
@@ -19,10 +19,10 @@ var _points: ScatterplotPoint[][] = [];
 watch(() => props.dataContainer, async () => {
     if (props.dataContainer) {
         if (JSON.stringify(selectedPointTickers) != JSON.stringify(props.dataContainer.seriesLabels)){
-            selectedPointWeights = [];
+            selectedWeightss = [];
         }
-        else if (selectedPointWeights.length && MathHelpers.getSum(selectedPointWeights[0]) != MathHelpers.getSum(props.dataContainer.points[0].weights)){
-            selectedPointWeights = [];
+        else if (selectedWeightss.length && MathHelpers.getSum(selectedWeightss[0]) != MathHelpers.getSum(props.dataContainer.points[0].weights)){
+            selectedWeightss = [];
         }
         selectedPointTickers = props.dataContainer.seriesLabels;
         _tryRenderChart();
@@ -55,20 +55,20 @@ function clickHandler(event: MouseEvent) {
         if (event.ctrlKey){
             clickedPoints.forEach(z => {
                 var point = _points[z.datasetIndex][z.index];
-                selectedPointWeights.push(point.weights);
+                selectedWeightss.push(point.weights);
             });
         } else {
-            selectedPointWeights = clickedPoints.map(z => {
+            selectedWeightss = clickedPoints.map(z => {
                 var point = _points[z.datasetIndex][z.index];
                 return point.weights;
             });
         }
-        emits('point-clicked', selectedPointWeights);
+        emits('point-clicked', selectedWeightss);
         updateDatasetData();
     } else {
-        if (selectedPointWeights.length && !event.ctrlKey) {
-            selectedPointWeights = [];
-            emits('point-clicked', null);
+        if (selectedWeightss.length && !event.ctrlKey) {
+            selectedWeightss = [];
+            emits('point-clicked', []);
             updateDatasetData();
         }
     }
@@ -104,7 +104,7 @@ function getMatchIndexOf(selectedPointWeights: number[][], weights: number[]): n
 
 function setupPoints() {
     _points = [[],[],[],[]];
-    var remainingSelectedPointWeights = [...selectedPointWeights]
+    var remainingSelectedPointWeights = [...selectedWeightss]
     for (var i = 0; i < props.dataContainer!.points.length; i++){
         var point = toRaw(props.dataContainer!.points[i]);
         var selectedIndex = getMatchIndexOf(remainingSelectedPointWeights, point.weights)
@@ -154,6 +154,7 @@ function _tryRenderChart() {
                     data: _points[2].map(z => ({x: z.x, y: z.y})),
                     pointRadius: 5,
                     pointHoverRadius: 8,
+                    pointHoverBackgroundColor: '#7744ff',
                     backgroundColor: "#7744ff"
                 },
                 {
@@ -161,6 +162,7 @@ function _tryRenderChart() {
                     data: _points[3].map(z => ({x: z.x, y: z.y})),
                     pointRadius: 5,
                     pointHoverRadius: 8,
+                    pointHoverBackgroundColor: "#0077fd",
                     backgroundColor: "#0077fdbb"
                 }
             ]

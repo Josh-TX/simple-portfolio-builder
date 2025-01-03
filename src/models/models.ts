@@ -64,44 +64,6 @@ export type CalculatePointsRequest = {
     axisInputsY: ScatterplotAxisInputs
 }
 
-export type GetPortfolioSimulationsRequest = {
-    portfolio: Portfolio, 
-    simulationCount: number, 
-    years: number
-}
-
-export type PortfolioSummary = {
-    weights: number[],
-    avgLogAfr: number,
-    stdDevLogAfr: number
-}
-
-export type Portfolio = {
-    name: string,
-
-    returnDays: number,
-    smoothDays: number,
-    tickers: string[],
-    weights: number[],
-
-    avgLogAfrs: number[],
-    stdDevLogAfrs: number[],
-    correlationMatrix: number[][]
-}
-
-export type SimulatedPortfolio = Portfolio & { results: number[] }
-
-
-export type HistogramContainer = {
-    binAvgs: number[],
-    datasets: HistogramDataset[]
-}
-
-export type HistogramDataset = {
-    name: string,
-    bins: number[]
-}
-
 export type LineDataContainer = {
     dayNumbers: number[], 
     seriesLabels: string[],

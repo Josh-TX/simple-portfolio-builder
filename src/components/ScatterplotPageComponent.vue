@@ -5,7 +5,7 @@ import TickerInputComponent from './TickerInputComponent.vue';
 import { tickerInputs } from '../services/tickerInputService';
 import { Reactive, reactive, ref, shallowRef, ShallowRef, watch } from 'vue'
 import { localSettingsService } from '../services/localSettingsService';
-import { PortfolioSummary, ScatterplotAxisInputs, ScatterplotDataContainer } from '../models/models';
+import { ScatterplotAxisInputs, ScatterplotDataContainer } from '../models/models';
 import { getPriceHistory } from '../services/priceLoader';
 import ScatterplotChart from './ScatterplotChart.vue';
 import { debounce } from '../services/debouncer';
@@ -21,14 +21,11 @@ var dataContainer = ref<ScatterplotDataContainer | null>(null);
 var newestTicker = ref<string | null>(null);
 var newestTickerStart = ref<string | null>(null);
 var includePure = ref<boolean>(true);
-
+var overrideStart = ref<boolean>(false);
 var axisInputsX: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsX") || { mode: "return", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
 var axisInputsY: Reactive<ScatterplotAxisInputs> = reactive(localSettingsService.getValue("scatterplotAxisInputsY") || { mode: "logReturnSD", returnDays: 30, smoothDays: 5, drawdownDays: 1, riskAdjSD: -0.5});
-
-//var selectedSummary: Ref<PortfolioSummary | null> = ref(null);
-//var selectedChartData: Ref<ChartData | null> = ref(null);
-//var selectedPortfolio: Ref<Portfolio | null> = ref(null);
 var highlightedIndexes: ShallowRef<number[]> = shallowRef([]);
+var selectedWeightss: ShallowRef<number[][]> = shallowRef([]);
 
 watch(segmentCount, () => {
     localSettingsService.setValue("segmentCount", segmentCount.value);
@@ -108,60 +105,20 @@ function getTitle(axis: "x" | "y"): string{
     throw "unknown mode";
 }
 
-// function getPorfolioName(tickers: string[], weights: number[]){
-//     var name = "";
-//     var totalWeight = getSum(weights);
-//     for (var i = 0; i < tickers.length; i++){
-//         if (weights[i] > 0){
-//             name += `${tickers[i]} ${Math.round(weights[i] / totalWeight * 1000) / 10}%,`;
-//         }
-//     }
-//     return name.replace(/,+$/, '');
-// }
-
-async function pointClicked(summary: PortfolioSummary | null) {
-    //selectedSummary.value = summary;
-    if (!summary) {
-        return;
+function getSelectedPortfolioLabel(weights: number[]){
+    var label = "";
+    var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
+    for (var i = 0; i < tickerArray.length; i++){
+        if (weights[i] > 0){
+            label += tickerArray[i] + ": " + weights[i] + ", ";
+        }
     }
-    //alert("not implemented")
-    // var tickerArray = tickerInputs.tickers.split(/[^a-zA-Z$]+/).filter(z => !!z);
-    // var promises = tickerArray.map(z => getPriceHistory(z));
-    // var dayPricess = await Promise.all(promises);
-    // var request: GetChartDataRequest = {
-    //     dayPricess: dayPricess,
-    //     tickers: tickerArray,
-    //     filterDays: tickerInputs.filterDays,
-    //     returnDays: tickerInputs.returnDays,
-    //     smoothDays: tickerInputs.smoothDays
-    // };
-    // var chartData = getWeightsWorker.getWeights
-    // selectedChartData.value = chartData;
-    // var averages: number[] = [];
-    // var sds: number[] = [];
-    // for (var i = 0; i < chartData.dataColumns[0].length; i++){
-    //     var nums = chartData.dataColumns.map(z => z[i]).filter(z => z != null).map(z => z!); //typescript being dumb
-    //     var avg = getSum(nums) / nums.length;
-    //     var sd = getSD(nums)!;
-    //     averages.push(avg);
-    //     sds.push(sd);
-    // }
-    // var portfolio: Portfolio = {
-    //     name: getPorfolioName(tickerArray, summary.weights),
-    //     smoothDays: tickerInputs.smoothDays,
-    //     returnDays: tickerInputs.returnDays,
-    //     tickers: tickerArray,
-    //     weights: summary.weights,
-    //     avgLogAfrs: averages,
-    //     stdDevLogAfrs: sds,
-    //     correlationMatrix: getCorrelationMatrix(chartData.dataColumns)
-    // };
-    // selectedPortfolio.value = portfolio;
+    return label.substring(0, label.length - 2);
 }
 
-// function simulatePortfolio(){
-//     selectedPortfolioService.addPortfolio(toRaw(selectedPortfolio.value!));
-// }
+async function pointClicked(weightss: number[][]) {
+    selectedWeightss.value = [...weightss];
+}
 
 </script>
 
@@ -194,14 +151,14 @@ async function pointClicked(summary: PortfolioSummary | null) {
                 </select>
             </div>
             <div>
-                <label>Earliest Start Date</label>
+                <label><input type="checkbox" class="checkbox-fix" v-model="overrideStart" style="margin: 0 6px 0 0;">Force Start Date</label>
                 <br>
-                <input type="date" style="width: 100%;">
+                <input type="date" style="width: 100%;" :disabled="!overrideStart">
             </div>
-            <div class="invisible" :class="{'visible': !!filterExpr}">
-                <label>Include pure portfolios</label>
+            <div class="invisible" :class="{'visible': !!filterExpr}" style="text-align: center;;">
+                <label>&nbsp;</label>
                 <br>
-                <input type="checkbox" v-model="includePure" style="margin-left: 0;">
+                <label><input type="checkbox" class="checkbox-fix" v-model="includePure"> Include pure portfolios</label>
             </div>
             <div style="flex: 1; padding-right: 8px;">
                 <label>Filter Portfolios by Expression</label>
@@ -210,11 +167,17 @@ async function pointClicked(summary: PortfolioSummary | null) {
             </div>
             <button @click="generate">Generate</button>
         </div>
-        <div>
-            <div style="flex: 0.5; padding-right: 8px;">
+        <div style="border-top: 1px solid #2D2D2D; height: 1px; margin: 8px 0 2px 0;"></div>
+        <div style="display: flex; gap: 16px;">
+            <div style="flex: 1; padding-right: 8px;">
                 <label>Highlight Portfolios by Expression</label>
                 <br>
                 <input v-model="highlightExpr" style="width: 100%">
+            </div>
+            <div style="flex: 1; padding-right: 8px;" class="invisible" :class="{'visible': !!selectedWeightss.length}">
+                <label>Selected Portfolio</label>
+                <br>
+                <span v-if="selectedWeightss.length" style="font-weight: 500; color: #aaa;">{{ getSelectedPortfolioLabel(selectedWeightss[0]) }}</span>
             </div>
         </div>
         <div class="scatterplot-container">
@@ -312,10 +275,13 @@ async function pointClicked(summary: PortfolioSummary | null) {
 .invisible{
     opacity: 0;
     user-select: none;
-    transition: opacity 0.15s;
 }
 .visible{
     opacity: 1;
-    user-select: inherit;
+}
+
+.checkbox-fix{
+    position: relative;
+    top: 1px;
 }
 </style>
